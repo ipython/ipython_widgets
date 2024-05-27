@@ -7,13 +7,15 @@ import { JupyterLuminoPanelWidget } from '@jupyter-widgets/base';
 
 import { Panel } from '@lumino/widgets';
 
-import { LabWidgetManager, WidgetManager } from './manager';
+import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
+
+import { LabWidgetManager } from './manager';
 
 import { OutputAreaModel, OutputArea } from '@jupyterlab/outputarea';
 
 import * as nbformat from '@jupyterlab/nbformat';
 
-import { KernelMessage, Session } from '@jupyterlab/services';
+import { KernelMessage } from '@jupyterlab/services';
 
 import $ from 'jquery';
 
@@ -33,30 +35,9 @@ export class OutputModel extends outputBase.OutputModel {
       return false;
     };
 
-    // if the context is available, react on kernel changes
-    if (this.widget_manager instanceof WidgetManager) {
-      this.widget_manager.context.sessionContext.kernelChanged.connect(
-        (sender, args) => {
-          this._handleKernelChanged(args);
-        }
-      );
-    }
     this.listenTo(this, 'change:msg_id', this.reset_msg_id);
     this.listenTo(this, 'change:outputs', this.setOutputs);
     this.setOutputs();
-  }
-
-  /**
-   * Register a new kernel
-   */
-  _handleKernelChanged({
-    oldValue,
-  }: Session.ISessionConnection.IKernelChangedArgs): void {
-    const msgId = this.get('msg_id');
-    if (msgId && oldValue) {
-      oldValue.removeMessageHook(msgId, this._msgHook);
-      this.set('msg_id', null);
-    }
   }
 
   /**
@@ -121,6 +102,7 @@ export class OutputModel extends outputBase.OutputModel {
 
   private _msgHook: (msg: KernelMessage.IIOPubMessage) => boolean;
   private _outputs: OutputAreaModel;
+  static rendermime: IRenderMimeRegistry;
 }
 
 export class OutputView extends outputBase.OutputView {
@@ -145,10 +127,11 @@ export class OutputView extends outputBase.OutputView {
   render(): void {
     super.render();
     this._outputView = new OutputArea({
-      rendermime: this.model.widget_manager.rendermime,
+      rendermime: OutputModel.rendermime,
       contentFactory: OutputArea.defaultContentFactory,
       model: this.model.outputs,
     });
+
     // TODO: why is this a readonly property now?
     // this._outputView.model = this.model.outputs;
     // TODO: why is this on the model now?

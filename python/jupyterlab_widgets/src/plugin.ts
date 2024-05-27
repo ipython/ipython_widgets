@@ -5,12 +5,10 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 
 import { DocumentRegistry } from '@jupyterlab/docregistry';
 
-import * as nbformat from '@jupyterlab/nbformat';
-
 import {
-  IConsoleTracker,
   CodeConsole,
   ConsolePanel,
+  IConsoleTracker,
 } from '@jupyterlab/console';
 
 import {
@@ -21,15 +19,15 @@ import {
 } from '@jupyterlab/notebook';
 
 import {
-  JupyterFrontEndPlugin,
   JupyterFrontEnd,
+  JupyterFrontEndPlugin,
 } from '@jupyterlab/application';
 
 import { IMainMenu } from '@jupyterlab/mainmenu';
 
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 
-import { ILoggerRegistry, LogLevel } from '@jupyterlab/logconsole';
+import { ILoggerRegistry } from '@jupyterlab/logconsole';
 
 import { CodeCell } from '@jupyterlab/cells';
 
@@ -37,15 +35,17 @@ import { filter } from '@lumino/algorithm';
 
 import { DisposableDelegate } from '@lumino/disposable';
 
+import { AttachedProperty } from '@lumino/properties';
+
 import { WidgetRenderer } from './renderer';
 
 import {
-  WidgetManager,
+  LabWidgetManager,
   WIDGET_VIEW_MIMETYPE,
-  KernelWidgetManager,
+  WidgetManager,
 } from './manager';
 
-import { OutputModel, OutputView, OUTPUT_WIDGET_VERSION } from './output';
+import { OUTPUT_WIDGET_VERSION, OutputModel, OutputView } from './output';
 
 import * as base from '@jupyter-widgets/base';
 
@@ -55,11 +55,7 @@ import { JUPYTER_CONTROLS_VERSION } from '@jupyter-widgets/controls/lib/version'
 
 import '@jupyter-widgets/base/css/index.css';
 import '@jupyter-widgets/controls/css/widgets-base.css';
-import { KernelMessage } from '@jupyterlab/services';
 import { ITranslator, nullTranslator } from '@jupyterlab/translation';
-import { ISessionContext } from '@jupyterlab/apputils';
-
-const WIDGET_REGISTRY: base.IWidgetRegistryData[] = [];
 
 /**
  * The cached settings.
@@ -138,87 +134,19 @@ function* chain<T>(
   }
 }
 
-/**
- * Get the kernel id of current notebook or console panel, this value
- * is used as key for `Private.widgetManagerProperty` to store the widget
- * manager of current notebook or console panel.
- *
- * @param {ISessionContext} sessionContext The session context of notebook or
- * console panel.
- */
-async function getWidgetManagerOwner(
-  sessionContext: ISessionContext
-): Promise<Private.IWidgetManagerOwner> {
-  await sessionContext.ready;
-  return sessionContext.session!.kernel!.id;
-}
-
-/**
- * Common handler for registering both notebook and console
- * `WidgetManager`
- *
- * @param {(Notebook | CodeConsole)} content Context of panel.
- * @param {ISessionContext} sessionContext Session context of panel.
- * @param {IRenderMimeRegistry} rendermime Rendermime of panel.
- * @param {IterableIterator<WidgetRenderer>} renderers Iterator of
- * `WidgetRenderer` inside panel
- * @param {(() => WidgetManager | KernelWidgetManager)} widgetManagerFactory
- * function to create widget manager.
- */
-async function registerWidgetHandler(
-  content: Notebook | CodeConsole,
-  sessionContext: ISessionContext,
+export function registerWidgetManager(
+  context: DocumentRegistry.IContext<INotebookModel>,
   rendermime: IRenderMimeRegistry,
-  renderers: IterableIterator<WidgetRenderer>,
-  widgetManagerFactory: () => WidgetManager | KernelWidgetManager
-): Promise<DisposableDelegate> {
-  const wManagerOwner = await getWidgetManagerOwner(sessionContext);
-  let wManager = Private.widgetManagerProperty.get(wManagerOwner);
-  let currentOwner: string;
-
+  renderers: IterableIterator<WidgetRenderer>
+): DisposableDelegate {
+  let wManager = Private.widgetManagerProperty.get(context);
   if (!wManager) {
-    wManager = widgetManagerFactory();
-    WIDGET_REGISTRY.forEach((data) => wManager!.register(data));
-    Private.widgetManagerProperty.set(wManagerOwner, wManager);
-    currentOwner = wManagerOwner;
-    content.disposed.connect((_) => {
-      const currentwManager = Private.widgetManagerProperty.get(currentOwner);
-      if (currentwManager) {
-        Private.widgetManagerProperty.delete(currentOwner);
-      }
-    });
-
-    sessionContext.kernelChanged.connect((_, args) => {
-      const { newValue } = args;
-      if (newValue) {
-        const newKernelId = newValue.id;
-        const oldwManager = Private.widgetManagerProperty.get(currentOwner);
-
-        if (oldwManager) {
-          Private.widgetManagerProperty.delete(currentOwner);
-          Private.widgetManagerProperty.set(newKernelId, oldwManager);
-        }
-        currentOwner = newKernelId;
-      }
-    });
+    wManager = new WidgetManager(context, rendermime, SETTINGS);
+    Private.widgetManagerProperty.set(context, wManager);
   }
-
-  for (const r of renderers) {
-    r.manager = wManager;
+  if (wManager.kernel) {
+    wManager.updateWidgetRenderers(renderers);
   }
-
-  // Replace the placeholder widget renderer with one bound to this widget
-  // manager.
-  rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
-  rendermime.addFactory(
-    {
-      safe: false,
-      mimeTypes: [WIDGET_VIEW_MIMETYPE],
-      createRenderer: (options) => new WidgetRenderer(options, wManager),
-    },
-    -10
-  );
-
   return new DisposableDelegate(() => {
     if (rendermime) {
       rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
@@ -227,90 +155,27 @@ async function registerWidgetHandler(
   });
 }
 
-// Kept for backward compat ipywidgets<=8, but not used here anymore
-export function registerWidgetManager(
-  context: DocumentRegistry.IContext<INotebookModel>,
-  rendermime: IRenderMimeRegistry,
-  renderers: IterableIterator<WidgetRenderer>
-): DisposableDelegate {
-  let wManager: WidgetManager;
-  const managerReady = getWidgetManagerOwner(context.sessionContext).then(
-    (wManagerOwner) => {
-      const currentManager = Private.widgetManagerProperty.get(
-        wManagerOwner
-      ) as WidgetManager;
-      if (!currentManager) {
-        wManager = new WidgetManager(context, rendermime, SETTINGS);
-        WIDGET_REGISTRY.forEach((data) => wManager!.register(data));
-        Private.widgetManagerProperty.set(wManagerOwner, wManager);
-      } else {
-        wManager = currentManager;
-      }
-
-      for (const r of renderers) {
-        r.manager = wManager;
-      }
-
-      // Replace the placeholder widget renderer with one bound to this widget
-      // manager.
-      rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
-      rendermime.addFactory(
-        {
-          safe: false,
-          mimeTypes: [WIDGET_VIEW_MIMETYPE],
-          createRenderer: (options) => new WidgetRenderer(options, wManager),
-        },
-        -10
-      );
-    }
-  );
-
-  return new DisposableDelegate(async () => {
-    await managerReady;
-    if (rendermime) {
-      rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
-    }
-    wManager!.dispose();
-  });
-}
-
-export async function registerNotebookWidgetManager(
-  panel: NotebookPanel,
-  renderers: IterableIterator<WidgetRenderer>
-): Promise<DisposableDelegate> {
-  const content = panel.content;
-  const context = panel.context;
-  const sessionContext = context.sessionContext;
-  const rendermime = content.rendermime;
-  const widgetManagerFactory = () =>
-    new WidgetManager(context, rendermime, SETTINGS);
-
-  return registerWidgetHandler(
-    content,
-    sessionContext,
-    rendermime,
-    renderers,
-    widgetManagerFactory
-  );
-}
-
-export async function registerConsoleWidgetManager(
-  panel: ConsolePanel,
-  renderers: IterableIterator<WidgetRenderer>
-): Promise<DisposableDelegate> {
-  const content = panel.console;
-  const sessionContext = content.sessionContext;
-  const rendermime = content.rendermime;
-  const widgetManagerFactory = () =>
-    new KernelWidgetManager(sessionContext.session!.kernel!, rendermime);
-
-  return registerWidgetHandler(
-    content,
-    sessionContext,
-    rendermime,
-    renderers,
-    widgetManagerFactory
-  );
+function attachWidgetManagerToPanel(
+  panel: NotebookPanel | ConsolePanel,
+  app: JupyterFrontEnd
+) {
+  if (panel instanceof NotebookPanel) {
+    registerWidgetManager(
+      panel.context,
+      panel.content.rendermime,
+      chain(
+        notebookWidgetRenderers(panel.content),
+        outputViews(app, panel.context.path)
+      )
+    );
+  } else if (panel instanceof ConsolePanel) {
+    // A bit of a hack to make this a 'context'
+    registerWidgetManager(
+      panel.console as any,
+      panel.console.rendermime,
+      chain(consoleWidgetRenderers(panel.console))
+    );
+  }
 }
 
 /**
@@ -343,7 +208,7 @@ function updateSettings(settings: ISettingRegistry.ISettings): void {
 function activateWidgetExtension(
   app: JupyterFrontEnd,
   rendermime: IRenderMimeRegistry,
-  tracker: INotebookTracker | null,
+  widgetTracker: INotebookTracker | null,
   consoleTracker: IConsoleTracker | null,
   settingRegistry: ISettingRegistry | null,
   menu: IMainMenu | null,
@@ -353,41 +218,6 @@ function activateWidgetExtension(
   const { commands } = app;
   const trans = (translator ?? nullTranslator).load('jupyterlab_widgets');
 
-  const bindUnhandledIOPubMessageSignal = async (
-    nb: NotebookPanel
-  ): Promise<void> => {
-    if (!loggerRegistry) {
-      return;
-    }
-    const wManagerOwner = await getWidgetManagerOwner(
-      nb.context.sessionContext
-    );
-    const wManager = Private.widgetManagerProperty.get(wManagerOwner);
-
-    if (wManager) {
-      wManager.onUnhandledIOPubMessage.connect(
-        (
-          sender: WidgetManager | KernelWidgetManager,
-          msg: KernelMessage.IIOPubMessage
-        ) => {
-          const logger = loggerRegistry.getLogger(nb.context.path);
-          let level: LogLevel = 'warning';
-          if (
-            KernelMessage.isErrorMsg(msg) ||
-            (KernelMessage.isStreamMsg(msg) && msg.content.name === 'stderr')
-          ) {
-            level = 'error';
-          }
-          const data: nbformat.IOutput = {
-            ...msg.content,
-            output_type: msg.header.msg_type,
-          };
-          logger.rendermime = nb.content.rendermime;
-          logger.log({ type: 'output', data, level });
-        }
-      );
-    }
-  };
   if (settingRegistry !== null) {
     settingRegistry
       .load(managerPlugin.id)
@@ -399,7 +229,7 @@ function activateWidgetExtension(
         console.error(reason.message);
       });
   }
-
+  WidgetManager.loggerRegistry = loggerRegistry;
   // Add a placeholder widget renderer.
   rendermime.addFactory(
     {
@@ -409,33 +239,13 @@ function activateWidgetExtension(
     },
     -10
   );
-
-  if (tracker !== null) {
-    const rendererIterator = (panel: NotebookPanel) =>
-      chain(
-        notebookWidgetRenderers(panel.content),
-        outputViews(app, panel.context.path)
+  for (const tracker of [widgetTracker, consoleTracker]) {
+    if (tracker !== null) {
+      tracker.forEach((panel) => attachWidgetManagerToPanel(panel, app));
+      tracker.widgetAdded.connect((sender, panel) =>
+        attachWidgetManagerToPanel(panel, app)
       );
-    tracker.forEach(async (panel) => {
-      await registerNotebookWidgetManager(panel, rendererIterator(panel));
-      bindUnhandledIOPubMessageSignal(panel);
-    });
-    tracker.widgetAdded.connect(async (sender, panel) => {
-      await registerNotebookWidgetManager(panel, rendererIterator(panel));
-      bindUnhandledIOPubMessageSignal(panel);
-    });
-  }
-
-  if (consoleTracker !== null) {
-    const rendererIterator = (panel: ConsolePanel) =>
-      chain(consoleWidgetRenderers(panel.console));
-
-    consoleTracker.forEach(async (panel) => {
-      await registerConsoleWidgetManager(panel, rendererIterator(panel));
-    });
-    consoleTracker.widgetAdded.connect(async (sender, panel) => {
-      await registerConsoleWidgetManager(panel, rendererIterator(panel));
-    });
+    }
   }
   if (settingRegistry !== null) {
     // Add a command for automatically saving (jupyter-)widget state.
@@ -462,7 +272,7 @@ function activateWidgetExtension(
 
   return {
     registerWidget(data: base.IWidgetRegistryData): void {
-      WIDGET_REGISTRY.push(data);
+      LabWidgetManager.WIDGET_REGISTRY.push(data);
     },
   };
 }
@@ -534,17 +344,19 @@ export const controlWidgetsPlugin: JupyterFrontEndPlugin<void> = {
  */
 export const outputWidgetPlugin: JupyterFrontEndPlugin<void> = {
   id: `@jupyter-widgets/jupyterlab-manager:output-${OUTPUT_WIDGET_VERSION}`,
-  requires: [base.IJupyterWidgetRegistry],
+  requires: [base.IJupyterWidgetRegistry, IRenderMimeRegistry],
   autoStart: true,
   activate: (
     app: JupyterFrontEnd,
-    registry: base.IJupyterWidgetRegistry
+    registry: base.IJupyterWidgetRegistry,
+    rendermime: IRenderMimeRegistry
   ): void => {
-    registry.registerWidget({
-      name: '@jupyter-widgets/output',
-      version: OUTPUT_WIDGET_VERSION,
-      exports: { OutputModel, OutputView },
-    });
+    (OutputModel.rendermime = rendermime),
+      registry.registerWidget({
+        name: '@jupyter-widgets/output',
+        version: OUTPUT_WIDGET_VERSION,
+        exports: { OutputModel, OutputView },
+      });
   },
 };
 
@@ -556,23 +368,13 @@ export default [
 ];
 namespace Private {
   /**
-   * A type alias for keys of `widgetManagerProperty` .
+   * A private attached property for a widget manager.
    */
-  export type IWidgetManagerOwner = string;
-
-  /**
-   * A type alias for values of `widgetManagerProperty` .
-   */
-  export type IWidgetManagerValue =
-    | WidgetManager
-    | KernelWidgetManager
-    | undefined;
-
-  /**
-   * A private map for a widget manager.
-   */
-  export const widgetManagerProperty = new Map<
-    IWidgetManagerOwner,
-    IWidgetManagerValue
-  >();
+  export const widgetManagerProperty = new AttachedProperty<
+    DocumentRegistry.Context,
+    WidgetManager | undefined
+  >({
+    name: 'widgetManager',
+    create: (owner: DocumentRegistry.Context): undefined => undefined,
+  });
 }

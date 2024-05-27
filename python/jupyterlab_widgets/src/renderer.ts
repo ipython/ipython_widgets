@@ -5,12 +5,13 @@ import { PromiseDelegate } from '@lumino/coreutils';
 
 import { IDisposable } from '@lumino/disposable';
 
-import { Panel, Widget as LuminoWidget } from '@lumino/widgets';
+import { Widget as LuminoWidget, Panel } from '@lumino/widgets';
 
 import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 
-import { LabWidgetManager } from './manager';
 import { DOMWidgetModel } from '@jupyter-widgets/base';
+
+import { LabWidgetManager, findWidgetManager } from './manager';
 
 /**
  * A renderer for widgets.
@@ -36,14 +37,22 @@ export class WidgetRenderer
   set manager(value: LabWidgetManager) {
     value.restored.connect(this._rerender, this);
     this._manager.resolve(value);
+    this._manager_set = true;
   }
 
   async renderModel(model: IRenderMime.IMimeModel): Promise<void> {
     const source: any = model.data[this.mimeType];
 
-    // Let's be optimistic, and hope the widget state will come later.
     this.node.textContent = 'Loading widget...';
-
+    if (!this._manager_set) {
+      try {
+        this.manager = findWidgetManager(source.model_id);
+      } catch (err) {
+        this.node.textContent = `widget model not found for ${model.data['text/plain']}`;
+        console.error(err);
+        return Promise.resolve();
+      }
+    }
     const manager = await this._manager.promise;
     // If there is no model id, the view was removed, so hide the node.
     if (source.model_id === '') {
@@ -61,12 +70,11 @@ export class WidgetRenderer
         this.node.textContent = 'Error displaying widget: model not found';
         this.addClass('jupyter-widgets');
         console.error(err);
-        return;
       }
 
       // Store the model for a possible rerender
       this._rerenderMimeModel = model;
-      return;
+      return Promise.resolve();
     }
 
     // Successful getting the model, so we don't need to try to rerender.
@@ -121,5 +129,6 @@ export class WidgetRenderer
    */
   readonly mimeType: string;
   private _manager = new PromiseDelegate<LabWidgetManager>();
+  private _manager_set = false;
   private _rerenderMimeModel: IRenderMime.IMimeModel | null = null;
 }
