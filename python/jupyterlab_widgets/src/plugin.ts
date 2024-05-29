@@ -148,9 +148,6 @@ export function registerWidgetManager(
     wManager.updateWidgetRenderers(renderers);
   }
   return new DisposableDelegate(() => {
-    if (rendermime) {
-      rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
-    }
     wManager!.dispose();
   });
 }
@@ -230,6 +227,7 @@ function activateWidgetExtension(
       });
   }
   WidgetManager.loggerRegistry = loggerRegistry;
+  LabWidgetManager.globalRendermime = rendermime;
   // Add a placeholder widget renderer.
   rendermime.addFactory(
     {
