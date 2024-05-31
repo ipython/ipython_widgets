@@ -15,6 +15,19 @@ import { LabWidgetManager, findWidgetManager } from './manager';
 
 /**
  * A renderer for widgets.
+ *
+ * Default behavior is to search for the manager, unless the manager
+ * has already been set.
+ *
+ * If `pendingManagerMessage` is a non-empty string, no attempt will
+ * be made to search for the wiget manager, and the manager must be
+ * waiting for a manager to be set.
+ *
+ * pendingManagerMessage: A message to post when rendering whilst
+ * awaiting the when manager.
+ *
+ * Omitting a message means a manager will be searched for.
+ *
  */
 export class WidgetRenderer
   extends Panel
@@ -22,10 +35,12 @@ export class WidgetRenderer
 {
   constructor(
     options: IRenderMime.IRendererOptions,
-    manager?: LabWidgetManager
+    manager?: LabWidgetManager,
+    pendingManagerMessage = ''
   ) {
     super();
     this.mimeType = options.mimeType;
+    this._pendingManagerMessage = pendingManagerMessage;
     if (manager) {
       this.manager = manager;
     }
@@ -37,35 +52,35 @@ export class WidgetRenderer
   set manager(value: LabWidgetManager) {
     value.restored.connect(this._rerender, this);
     this._manager.resolve(value);
-    this._manager_set = true;
+    this._managerIsSet = true;
   }
 
   async renderModel(model: IRenderMime.IMimeModel): Promise<void> {
     const source: any = model.data[this.mimeType];
 
-    this.node.textContent = 'Loading widget...';
-    if (!this._manager_set) {
-      try {
-        this.manager = findWidgetManager(source.model_id);
-      } catch (err) {
-        this.node.textContent = `widget model not found for ${model.data['text/plain']}`;
-        console.error(err);
-        return Promise.resolve();
-      }
-    }
-    const manager = await this._manager.promise;
     // If there is no model id, the view was removed, so hide the node.
     if (source.model_id === '') {
       this.hide();
       return Promise.resolve();
     }
-
+    let manager;
+    if (!this._pendingManagerMessage && !this._managerIsSet) {
+      manager = findWidgetManager(source.model_id);
+    }
+    this.node.textContent = `${
+      this._pendingManagerMessage || model.data['text/plain']
+    }`;
+    if (!manager) {
+      manager = await this._manager.promise;
+    }
     let wModel: DOMWidgetModel;
     try {
       // Presume we have a DOMWidgetModel. Should we check for sure?
       wModel = (await manager.get_model(source.model_id)) as DOMWidgetModel;
     } catch (err) {
-      if (manager.restoredStatus) {
+      if (!manager.restoredStatus) {
+        this._rerenderMimeModel = model;
+      } else {
         // The manager has been restored, so this error won't be going away.
         this.node.textContent = 'Error displaying widget: model not found';
         this.addClass('jupyter-widgets');
@@ -73,7 +88,6 @@ export class WidgetRenderer
       }
 
       // Store the model for a possible rerender
-      this._rerenderMimeModel = model;
       return Promise.resolve();
     }
 
@@ -129,6 +143,7 @@ export class WidgetRenderer
    */
   readonly mimeType: string;
   private _manager = new PromiseDelegate<LabWidgetManager>();
-  private _manager_set = false;
+  private _managerIsSet = false;
+  private _pendingManagerMessage: string;
   private _rerenderMimeModel: IRenderMime.IMimeModel | null = null;
 }

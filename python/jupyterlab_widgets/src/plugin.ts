@@ -141,11 +141,8 @@ export function registerWidgetManager(
 ): DisposableDelegate {
   let wManager = Private.widgetManagerProperty.get(context);
   if (!wManager) {
-    wManager = new WidgetManager(context, rendermime, SETTINGS);
+    wManager = new WidgetManager(context, rendermime, SETTINGS, renderers);
     Private.widgetManagerProperty.set(context, wManager);
-  }
-  if (wManager.kernel) {
-    wManager.updateWidgetRenderers(renderers);
   }
   return new DisposableDelegate(() => {
     wManager!.dispose();
