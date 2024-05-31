@@ -383,6 +383,7 @@ export abstract class ManagerBase implements IWidgetManager {
     // Try fetching all widget states through the control comm
     let data: any;
     let buffers: any;
+    let timeoutID: number | undefined;
     try {
       const initComm = await this._create_comm(
         CONTROL_COMM_TARGET,
@@ -390,8 +391,8 @@ export abstract class ManagerBase implements IWidgetManager {
         {},
         { version: CONTROL_COMM_PROTOCOL_VERSION }
       );
-
       await new Promise((resolve, reject) => {
+        let succeeded = false;
         initComm.on_msg((msg: any) => {
           data = msg['content']['data'];
 
@@ -409,28 +410,31 @@ export abstract class ManagerBase implements IWidgetManager {
               return new DataView(b instanceof ArrayBuffer ? b : b.buffer);
             }
           });
-
+          succeeded = true;
+          clearTimeout(timeoutID);
           resolve(null);
         });
 
-        initComm.on_close(() => reject('Control comm was closed too early'));
+        initComm.on_close(() => {
+          if (!succeeded) reject('Control comm was closed too early');
+        });
 
         // Send a states request msg
         initComm.send({ method: 'request_states' }, {});
 
         // Reject if we didn't get a response in time
-        setTimeout(
+        timeoutID = window.setTimeout(
           () => reject('Control comm did not respond in time'),
           CONTROL_COMM_TIMEOUT
         );
       });
-
       initComm.close();
     } catch (error) {
       console.warn(
         'Failed to fetch ipywidgets through the "jupyter.widget.control" comm channel, fallback to fetching individual model state. Reason:',
         error
       );
+      clearTimeout(timeoutID);
       // Fall back to the old implementation for old ipywidgets backend versions (ipywidgets<=7.6)
       return this._loadFromKernelModels();
     }
