@@ -384,6 +384,11 @@ export abstract class ManagerBase implements IWidgetManager {
     let data: any;
     let buffers: any;
     let timeoutID: number | undefined;
+    const comm_ids = await this._get_comm_info();
+    if (Object.keys(comm_ids).length === 0) {
+      // There is nothing to load, either a new kernel or no widgets in the kernel.
+      return Promise.resolve();
+    }
     try {
       const initComm = await this._create_comm(
         CONTROL_COMM_TARGET,
