@@ -20,6 +20,8 @@ import {
 
 import { IDisposable } from '@lumino/disposable';
 
+import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
+
 import { ReadonlyPartialJSONValue } from '@lumino/coreutils';
 
 import { INotebookModel } from '@jupyterlab/notebook';
@@ -44,8 +46,9 @@ import { SemVerCache } from './semvercache';
 
 import Backbone from 'backbone';
 
-import * as base from '@jupyter-widgets/base';
 import { WidgetRenderer } from './renderer';
+
+import * as base from '@jupyter-widgets/base';
 
 /**
  * The mime type for a widget view.
@@ -354,15 +357,20 @@ export abstract class LabWidgetManager
 export class KernelWidgetManager extends LabWidgetManager {
   constructor(
     kernel: Kernel.IKernelConnection,
-    rendermime: IRenderMimeRegistry | null
+    rendermime: IRenderMimeRegistry | null,
+    pendingManagerMessage = 'Loading widget ...'
   ) {
     if (!rendermime) {
       rendermime = LabWidgetManager.globalRendermime;
     }
     const instance = Private.kernelWidgetManagers.get(kernel.id);
     if (instance) {
-      KernelWidgetManager.updateManagerKernel(instance, kernel);
-      KernelWidgetManager.attachToRendermime(rendermime, instance);
+      instance._useKernel(kernel);
+      KernelWidgetManager.configureRendermime(
+        rendermime,
+        instance,
+        pendingManagerMessage
+      );
       return instance;
     }
     if (!kernel.handleComms) {
@@ -374,68 +382,72 @@ export class KernelWidgetManager extends LabWidgetManager {
     LabWidgetManager.WIDGET_REGISTRY.changed.connect(() =>
       this.loadCustomWidgetDefinitions()
     );
-    KernelWidgetManager.updateManagerKernel(this, kernel);
-    KernelWidgetManager.attachToRendermime(rendermime, this);
+    this._useKernel(kernel);
+    KernelWidgetManager.configureRendermime(
+      rendermime,
+      this,
+      pendingManagerMessage
+    );
   }
 
-  static updateManagerKernel(
-    manager: KernelWidgetManager,
-    kernel: Kernel.IKernelConnection
-  ) {
+  _useKernel(this: KernelWidgetManager, kernel: Kernel.IKernelConnection) {
     if (!kernel.handleComms) {
       return;
     }
-    manager._handleKernelChanged({
+    this._handleKernelChanged({
       name: 'kernel',
-      oldValue: manager._kernel,
+      oldValue: this._kernel,
       newValue: kernel,
     });
-    if (manager._kernel) {
-      manager._kernel.statusChanged.disconnect(
-        manager._handleKernelStatusChange,
-        manager
+    if (this._kernel) {
+      this._kernel.statusChanged.disconnect(
+        this._handleKernelStatusChange,
+        this
       );
-      manager._kernel.connectionStatusChanged.disconnect(
-        manager._handleKernelConnectionStatusChange,
-        manager
+      this._kernel.connectionStatusChanged.disconnect(
+        this._handleKernelConnectionStatusChange,
+        this
       );
     }
-    manager._kernel = kernel;
-    manager._kernel.statusChanged.connect(
-      manager._handleKernelStatusChange,
-      manager
+    this._kernel = kernel;
+    this._kernel.statusChanged.connect(this._handleKernelStatusChange, this);
+    this._kernel.connectionStatusChanged.connect(
+      this._handleKernelConnectionStatusChange,
+      this
     );
-    manager._kernel.connectionStatusChanged.connect(
-      manager._handleKernelConnectionStatusChange,
-      manager
-    );
-    manager._restoredStatus = false;
-    manager._kernelRestoreInProgress = true;
-    manager.clear_state().then(() => manager.restoreWidgets());
+    this._restoredStatus = false;
+    this._kernelRestoreInProgress = true;
+    this.clear_state().then(() => this.restoreWidgets());
   }
 
   /**
-   * Will define wManager as a renderer for rendermime if rendermime
-   * is not the global rendermime or there is only one wManager.
-   * If wManager is not provided, it will make the rendermine more general.
+   * Configure a non-global rendermime. Passing the global rendermine will do
+   * nothing.
+   *
+   * @param rendermime
+   * @param manager The manager to use with WidgetRenderer.
+   * @param pendingManagerMessage A message that is displayed while the manager
+   * has not been provided. If manager is not provided here a non-empty string
+   * assumes the manager will be provided at some time in the future.
+   *
+   * The default will search for a manager once.
+   * @returns
    */
-  static attachToRendermime(
+  static configureRendermime(
     rendermime: IRenderMimeRegistry,
-    wManager?: KernelWidgetManager
+    manager?: KernelWidgetManager,
+    pendingManagerMessage = ''
   ) {
-    const wManager_ =
-      rendermime === LabWidgetManager.globalRendermime &&
-      Private.kernelWidgetManagers.size > 1
-        ? undefined
-        : wManager;
-    const pendingManagerMessage = wManager ? 'Loading widget ...' : '';
+    if (rendermime === LabWidgetManager.globalRendermime) {
+      return;
+    }
     rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
     rendermime.addFactory(
       {
         safe: false,
         mimeTypes: [WIDGET_VIEW_MIMETYPE],
-        createRenderer: (options) =>
-          new WidgetRenderer(options, wManager_, pendingManagerMessage),
+        createRenderer: (options: IRenderMime.IRendererOptions) =>
+          new WidgetRenderer(options, manager, pendingManagerMessage),
       },
       -10
     );
@@ -491,7 +503,7 @@ export class KernelWidgetManager extends LabWidgetManager {
       return;
     }
     super.dispose();
-    KernelWidgetManager.attachToRendermime(this.rendermime);
+    KernelWidgetManager.configureRendermime(this.rendermime);
     Private.kernelWidgetManagers.delete(this.kernel.id);
     this._handleKernelChanged({
       name: 'kernel',
@@ -559,15 +571,11 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
       });
     }
     if (rendermime !== LabWidgetManager.globalRendermime) {
-      rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
-      rendermime.addFactory(
-        {
-          safe: false,
-          mimeTypes: [WIDGET_VIEW_MIMETYPE],
-          createRenderer: (options) =>
-            new WidgetRenderer(options, undefined, 'Waiting for kernel'),
-        },
-        -10
+      // Instruct the renderer to wait for the widgetManager.
+      KernelWidgetManager.configureRendermime(
+        rendermime,
+        undefined,
+        'Waiting for kernel'
       );
     }
     if (this.kernel) {
@@ -618,9 +626,10 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
           this.restoreWidgets(this._context!.model);
         }
       }
-      KernelWidgetManager.attachToRendermime(
+      KernelWidgetManager.configureRendermime(
         this.rendermime,
-        this._widgetManager
+        this._widgetManager,
+        'Loading widget ...'
       );
       if (this._renderers) {
         for (const r of this._renderers) {
@@ -814,17 +823,15 @@ export namespace WidgetManager {
 }
 
 /**
- * Get the widgetManager that owns the model id=model_id.
- * @param model_id An existing model_id
- * @returns KernelWidgetManager
+ * Get the widgetManager that owns the model.
  */
-export function findWidgetManager(model_id: string): KernelWidgetManager {
+export function getWidgetManager(model_id: string): KernelWidgetManager | null {
   for (const wManager of Private.kernelWidgetManagers.values()) {
     if (wManager.has_model(model_id)) {
       return wManager;
     }
   }
-  throw new Error(`A widget manager was not found for model_id: '${model_id}'`);
+  return null;
 }
 
 /**

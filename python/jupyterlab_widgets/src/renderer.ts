@@ -11,7 +11,7 @@ import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 
 import { DOMWidgetModel } from '@jupyter-widgets/base';
 
-import { LabWidgetManager, findWidgetManager } from './manager';
+import { LabWidgetManager, getWidgetManager } from './manager';
 
 /**
  * A renderer for widgets.
@@ -65,7 +65,7 @@ export class WidgetRenderer
     }
     let manager;
     if (!this._pendingManagerMessage && !this._managerIsSet) {
-      manager = findWidgetManager(source.model_id);
+      manager = getWidgetManager(source.model_id);
     }
     this.node.textContent = `${
       this._pendingManagerMessage || model.data['text/plain']
@@ -80,13 +80,16 @@ export class WidgetRenderer
     } catch (err) {
       if (!manager.restoredStatus) {
         this._rerenderMimeModel = model;
+      } else if (this._pendingManagerMessage === 'Waiting for kernel') {
+        this.node.textContent = `Widget not found in this kernel: ${
+          model.data['text/plain'] || source.model_id
+        }`;
       } else {
         // The manager has been restored, so this error won't be going away.
         this.node.textContent = 'Error displaying widget: model not found';
         this.addClass('jupyter-widgets');
         console.error(err);
       }
-
       // Store the model for a possible rerender
       return Promise.resolve();
     }

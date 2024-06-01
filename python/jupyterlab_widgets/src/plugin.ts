@@ -225,7 +225,7 @@ function activateWidgetExtension(
   }
   WidgetManager.loggerRegistry = loggerRegistry;
   LabWidgetManager.globalRendermime = rendermime;
-  // Add a placeholder widget renderer.
+  // Add a default widget renderer.
   rendermime.addFactory(
     {
       safe: false,
