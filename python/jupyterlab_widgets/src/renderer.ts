@@ -48,11 +48,20 @@ export class WidgetRenderer
 
   /**
    * The widget manager.
+   *
+   * Will accept the first non-null manager and ignore anything afterwards.
    */
-  set manager(value: LabWidgetManager) {
-    value.restored.connect(this._rerender, this);
-    this._manager.resolve(value);
-    this._managerIsSet = true;
+
+  set manager(value: LabWidgetManager | null) {
+    if (value && !this._managerIsSet) {
+      // Can only set the manager once
+      this._manager.resolve(value);
+      this._managerIsSet = true;
+      value.restored.connect(this._rerender, this);
+      this.disposed.connect(() =>
+        value.restored.disconnect(this._rerender, this)
+      );
+    }
   }
 
   async renderModel(model: IRenderMime.IMimeModel): Promise<void> {
@@ -63,28 +72,23 @@ export class WidgetRenderer
       this.hide();
       return Promise.resolve();
     }
-    let manager;
     if (!this._pendingManagerMessage && !this._managerIsSet) {
-      manager = getWidgetManager(source.model_id);
+      this.manager = getWidgetManager(source.model_id);
     }
     this.node.textContent = `${
       this._pendingManagerMessage || model.data['text/plain']
     }`;
-    if (!manager) {
-      manager = await this._manager.promise;
-    }
+    const manager: LabWidgetManager = await this._manager.promise;
+    this._rerenderMimeModel = model;
+
     let wModel: DOMWidgetModel;
     try {
       // Presume we have a DOMWidgetModel. Should we check for sure?
       wModel = (await manager.get_model(source.model_id)) as DOMWidgetModel;
     } catch (err) {
-      if (!manager.restoredStatus) {
-        this._rerenderMimeModel = model;
-      } else if (this._pendingManagerMessage === 'Waiting for kernel') {
-        this.node.textContent = `Widget not found in this kernel: ${
-          model.data['text/plain'] || source.model_id
-        }`;
-      } else {
+      if (this._pendingManagerMessage === 'No kernel') {
+        this.node.textContent = 'Model not found in new kernel';
+      } else if (manager.restoredStatus) {
         // The manager has been restored, so this error won't be going away.
         this.node.textContent = 'Error displaying widget: model not found';
         this.addClass('jupyter-widgets');
@@ -93,10 +97,6 @@ export class WidgetRenderer
       // Store the model for a possible rerender
       return Promise.resolve();
     }
-
-    // Successful getting the model, so we don't need to try to rerender.
-    this._rerenderMimeModel = null;
-
     let widget: LuminoWidget;
     try {
       widget = (await manager.create_view(wModel)).luminoWidget;
@@ -110,12 +110,12 @@ export class WidgetRenderer
     // Clear any previous loading message.
     this.node.textContent = '';
     this.addWidget(widget);
+    this.show();
 
     // When the widget is disposed, hide this container and make sure we
     // change the output model to reflect the view was closed.
     widget.disposed.connect(() => {
       this.hide();
-      source.model_id = '';
     });
   }
 
@@ -127,6 +127,7 @@ export class WidgetRenderer
       return;
     }
     this._manager = null!;
+    this._rerenderMimeModel = null;
     super.dispose();
   }
 

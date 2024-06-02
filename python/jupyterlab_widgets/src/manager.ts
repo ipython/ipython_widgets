@@ -24,7 +24,7 @@ import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 
 import { ReadonlyPartialJSONValue } from '@lumino/coreutils';
 
-import { INotebookModel } from '@jupyterlab/notebook';
+import { INotebookModel, NotebookModel } from '@jupyterlab/notebook';
 
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 
@@ -353,24 +353,20 @@ export abstract class LabWidgetManager
  * A singleton widget manager per kernel for the lifecycle of the kernel.
  * The factory of the rendermime will be update to use the widgetManager
  * directly if it isn't the globalRendermime.
+ *
+ * Note: The rendermime of the instance is always the global rendermime.
  */
 export class KernelWidgetManager extends LabWidgetManager {
   constructor(
     kernel: Kernel.IKernelConnection,
-    rendermime: IRenderMimeRegistry | null,
+    rendermime?: IRenderMimeRegistry,
     pendingManagerMessage = 'Loading widget ...'
   ) {
-    if (!rendermime) {
-      rendermime = LabWidgetManager.globalRendermime;
-    }
     const instance = Private.kernelWidgetManagers.get(kernel.id);
     if (instance) {
       instance._useKernel(kernel);
-      KernelWidgetManager.configureRendermime(
-        rendermime,
-        instance,
-        pendingManagerMessage
-      );
+      configureRendermime(rendermime, instance, pendingManagerMessage);
+      instance._firstLoad = false;
       return instance;
     }
     if (!kernel.handleComms) {
@@ -383,15 +379,11 @@ export class KernelWidgetManager extends LabWidgetManager {
       this.loadCustomWidgetDefinitions()
     );
     this._useKernel(kernel);
-    KernelWidgetManager.configureRendermime(
-      rendermime,
-      this,
-      pendingManagerMessage
-    );
+    configureRendermime(rendermime, this, pendingManagerMessage);
   }
 
   _useKernel(this: KernelWidgetManager, kernel: Kernel.IKernelConnection) {
-    if (!kernel.handleComms) {
+    if (!kernel.handleComms || this._kernel === kernel) {
       return;
     }
     this._handleKernelChanged({
@@ -418,39 +410,6 @@ export class KernelWidgetManager extends LabWidgetManager {
     this._restoredStatus = false;
     this._kernelRestoreInProgress = true;
     this.clear_state().then(() => this.restoreWidgets());
-  }
-
-  /**
-   * Configure a non-global rendermime. Passing the global rendermine will do
-   * nothing.
-   *
-   * @param rendermime
-   * @param manager The manager to use with WidgetRenderer.
-   * @param pendingManagerMessage A message that is displayed while the manager
-   * has not been provided. If manager is not provided here a non-empty string
-   * assumes the manager will be provided at some time in the future.
-   *
-   * The default will search for a manager once.
-   * @returns
-   */
-  static configureRendermime(
-    rendermime: IRenderMimeRegistry,
-    manager?: KernelWidgetManager,
-    pendingManagerMessage = ''
-  ) {
-    if (rendermime === LabWidgetManager.globalRendermime) {
-      return;
-    }
-    rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
-    rendermime.addFactory(
-      {
-        safe: false,
-        mimeTypes: [WIDGET_VIEW_MIMETYPE],
-        createRenderer: (options: IRenderMime.IRendererOptions) =>
-          new WidgetRenderer(options, manager, pendingManagerMessage),
-      },
-      -10
-    );
   }
 
   _handleKernelConnectionStatusChange(
@@ -482,6 +441,7 @@ export class KernelWidgetManager extends LabWidgetManager {
         break;
     }
   }
+
   /**
    * Restore widgets from kernel.
    */
@@ -503,7 +463,7 @@ export class KernelWidgetManager extends LabWidgetManager {
       return;
     }
     super.dispose();
-    KernelWidgetManager.configureRendermime(this.rendermime);
+    configureRendermime(this.rendermime);
     Private.kernelWidgetManagers.delete(this.kernel.id);
     this._handleKernelChanged({
       name: 'kernel',
@@ -518,6 +478,10 @@ export class KernelWidgetManager extends LabWidgetManager {
     return this._kernel;
   }
 
+  get firstLoad() {
+    return this._firstLoad;
+  }
+
   loadCustomWidgetDefinitions() {
     for (const data of LabWidgetManager.WIDGET_REGISTRY) {
       this.register(data);
@@ -527,7 +491,7 @@ export class KernelWidgetManager extends LabWidgetManager {
   filterModelState(serialized_state: any): any {
     return this.filterExistingModelState(serialized_state);
   }
-
+  private _firstLoad = true;
   private _kernel: Kernel.IKernelConnection;
   protected _kernelRestoreInProgress = false;
 }
@@ -570,17 +534,7 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
         }
       });
     }
-    if (rendermime !== LabWidgetManager.globalRendermime) {
-      // Instruct the renderer to wait for the widgetManager.
-      KernelWidgetManager.configureRendermime(
-        rendermime,
-        undefined,
-        'Waiting for kernel'
-      );
-    }
-    if (this.kernel) {
-      this.updateWidgetManager();
-    }
+    this.updateWidgetManager();
   }
 
   /**
@@ -605,38 +559,45 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
   }
 
   async updateWidgetManager() {
+    let wManager: KernelWidgetManager | undefined;
+    if (!this.kernel) {
+      //'No kernel' is matched in WidgetRenderer to supress 'model not found errors'.
+      configureRendermime(this.rendermime, undefined, 'No kernel');
+    } else {
+      await this.context.sessionContext.ready;
+      wManager = new KernelWidgetManager(this.kernel);
+    }
+    if (wManager === this._widgetManager) {
+      return;
+    }
     if (this._widgetManager) {
       this._widgetManager.onUnhandledIOPubMessage.disconnect(
         this.onUnhandledIOPubMessage,
         this
       );
     }
-    if (this.kernel) {
-      await this.context.sessionContext.ready;
-      this._widgetManager = new KernelWidgetManager(this.kernel, null);
-      this._widgetManager.onUnhandledIOPubMessage.connect(
-        this.onUnhandledIOPubMessage,
-        this
-      );
-      if (!this._widgetManager.restoredStatus) {
-        await new Promise((resolve) => {
-          this._widgetManager?.restored.connect(resolve);
-        });
-        if (!this.restored) {
-          this.restoreWidgets(this._context!.model);
-        }
-      }
-      KernelWidgetManager.configureRendermime(
-        this.rendermime,
-        this._widgetManager,
-        'Loading widget ...'
-      );
-      if (this._renderers) {
-        for (const r of this._renderers) {
-          r.manager = this._widgetManager;
-        }
+    this._widgetManager = wManager;
+    if (!wManager) {
+      return;
+    }
+    if (wManager.firstLoad) {
+      await new Promise((resolve) => {
+        this._widgetManager?.restored.connect(resolve);
+      });
+      if (!this.restored) {
+        this.restoreWidgets(this._context!.model);
       }
     }
+    if (this._renderers) {
+      for (const r of this._renderers) {
+        r.manager = wManager;
+      }
+    }
+    configureRendermime(this.rendermime, wManager, 'Loading widget ...');
+    wManager.onUnhandledIOPubMessage.connect(
+      this.onUnhandledIOPubMessage,
+      this
+    );
   }
 
   onUnhandledIOPubMessage(
@@ -676,7 +637,7 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
     this.setDirty();
   }
 
-  get widgetManager(): KernelWidgetManager | null {
+  get widgetManager(): KernelWidgetManager | undefined {
     return this._widgetManager;
   }
 
@@ -698,17 +659,13 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
   }
 
   /**
-   * Restore widgets from notebook and saved state.
+   * Restore widgets from model.
    */
-  async restoreWidgets(
-    notebook: INotebookModel,
-    { loadNotebook } = { loadNotebook: true }
-  ): Promise<void> {
+  async restoreWidgets(model: INotebookModel): Promise<void> {
     try {
-      if (loadNotebook) {
-        await this._loadFromNotebook(notebook);
+      if (model instanceof NotebookModel) {
+        await this._loadFromNotebook(model);
       }
-
       // If the restore worked above, then update our state.
       this._restoredStatus = true;
       this._restored.emit();
@@ -733,19 +690,6 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
       let state = widget_md[WIDGET_STATE_MIMETYPE];
       state = this.widgetManager.filterModelState(state);
 
-      // Ensure the kernel has been restored.
-      let timeoutID;
-      const restored = this.widgetManager.restored;
-      if (!this.widgetManager.restoredStatus) {
-        await new Promise((resolve, reject) => {
-          restored.connect(resolve);
-          timeoutID = window.setTimeout(
-            () => reject('Timeout waiting for '),
-            4000
-          );
-        });
-      }
-      clearTimeout(timeoutID);
       // Restore any widgets from saved state that are not live
       await this.widgetManager.set_state(state);
     }
@@ -812,7 +756,7 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
   private _context: DocumentRegistry.IContext<INotebookModel>;
   private _rendermime: IRenderMimeRegistry;
   private _settings: WidgetManager.Settings;
-  private _widgetManager: KernelWidgetManager | null;
+  private _widgetManager: KernelWidgetManager | undefined;
   private _renderers: IterableIterator<WidgetRenderer> | undefined;
 }
 
@@ -820,6 +764,39 @@ export namespace WidgetManager {
   export type Settings = {
     saveState: boolean;
   };
+}
+
+/**
+ * Configure a non-global rendermime. Passing the global rendermine will do
+ * nothing.
+ *
+ * @param rendermime
+ * @param manager The manager to use with WidgetRenderer.
+ * @param pendingManagerMessage A message that is displayed while the manager
+ * has not been provided. If manager is not provided here a non-empty string
+ * assumes the manager will be provided at some time in the future.
+ *
+ * The default will search for a manager once prior to waiting for a manager.
+ * @returns
+ */
+function configureRendermime(
+  rendermime?: IRenderMimeRegistry,
+  manager?: KernelWidgetManager,
+  pendingManagerMessage = ''
+) {
+  if (!rendermime || rendermime === LabWidgetManager.globalRendermime) {
+    return;
+  }
+  rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
+  rendermime.addFactory(
+    {
+      safe: false,
+      mimeTypes: [WIDGET_VIEW_MIMETYPE],
+      createRenderer: (options: IRenderMime.IRendererOptions) =>
+        new WidgetRenderer(options, manager, pendingManagerMessage),
+    },
+    -10
+  );
 }
 
 /**
