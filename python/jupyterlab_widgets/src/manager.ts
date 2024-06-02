@@ -802,10 +802,15 @@ function configureRendermime(
 /**
  * Get the widgetManager that owns the model.
  */
-export function getWidgetManager(model_id: string): KernelWidgetManager | null {
-  for (const wManager of Private.kernelWidgetManagers.values()) {
-    if (wManager.has_model(model_id)) {
-      return wManager;
+export async function getWidgetManager(
+  model_id: string
+): Promise<KernelWidgetManager | null> {
+  for (const sleepTime of [0, 50, 1000]) {
+    await new Promise((r) => setTimeout(r, sleepTime));
+    for (const wManager of Private.kernelWidgetManagers.values()) {
+      if (wManager.has_model(model_id)) {
+        return wManager;
+      }
     }
   }
   return null;

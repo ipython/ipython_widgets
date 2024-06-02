@@ -73,7 +73,7 @@ export class WidgetRenderer
       return Promise.resolve();
     }
     if (!this._pendingManagerMessage && !this._managerIsSet) {
-      this.manager = getWidgetManager(source.model_id);
+      this.manager = await getWidgetManager(source.model_id);
     }
     this.node.textContent = `${
       this._pendingManagerMessage || model.data['text/plain']
