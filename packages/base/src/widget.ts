@@ -214,16 +214,22 @@ export class WidgetModel extends Backbone.Model {
   /**
    * Close model
    *
+   * @param comm_closed - true if the comm is already being closed. If false, the comm will be closed.
+   *
    * @returns - a promise that is fulfilled when all the associated views have been removed.
    */
-  close(): Promise<void> {
+  close(comm_closed = false): Promise<void> {
     // can only be closed once.
     if (this._closed) {
       return Promise.resolve();
     }
     this._closed = true;
-    if (this.comm && this.comm_live) {
-      this.comm.close();
+    if (this.comm && !comm_closed && this.comm_live) {
+      try {
+        this.comm.close();
+      } catch (err) {
+        // Do Nothing
+      }
     }
     this.stopListening();
     this.trigger('destroy', this);
@@ -248,10 +254,10 @@ export class WidgetModel extends Backbone.Model {
    */
   _handle_comm_closed(msg: KernelMessage.ICommCloseMsg): void {
     this.comm_live = false;
-    if (this._closed) {
-      this.close();
-    }
     this.trigger('comm:close');
+    if (!this._closed) {
+      this.close(true);
+    }
   }
 
   /**
