@@ -5,18 +5,9 @@ import { ISettingRegistry } from '@jupyterlab/settingregistry';
 
 import { DocumentRegistry } from '@jupyterlab/docregistry';
 
-import {
-  CodeConsole,
-  ConsolePanel,
-  IConsoleTracker,
-} from '@jupyterlab/console';
+import { ConsolePanel, IConsoleTracker } from '@jupyterlab/console';
 
-import {
-  INotebookModel,
-  INotebookTracker,
-  Notebook,
-  NotebookPanel,
-} from '@jupyterlab/notebook';
+import { INotebookTracker, NotebookPanel } from '@jupyterlab/notebook';
 
 import {
   JupyterFrontEnd,
@@ -29,13 +20,7 @@ import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 
 import { ILoggerRegistry } from '@jupyterlab/logconsole';
 
-import { CodeCell } from '@jupyterlab/cells';
-
-import { filter } from '@lumino/algorithm';
-
 import { DisposableDelegate } from '@lumino/disposable';
-
-import { AttachedProperty } from '@lumino/properties';
 
 import { WidgetRenderer } from './renderer';
 
@@ -62,113 +47,19 @@ import { ITranslator, nullTranslator } from '@jupyterlab/translation';
  */
 const SETTINGS: WidgetManager.Settings = { saveState: false };
 
-/**
- * Iterate through all widget renderers in a notebook.
- */
-function* notebookWidgetRenderers(
-  nb: Notebook
-): Generator<WidgetRenderer, void, unknown> {
-  for (const cell of nb.widgets) {
-    if (cell.model.type === 'code') {
-      for (const codecell of (cell as CodeCell).outputArea.widgets) {
-        // We use Array.from instead of using Lumino 2 (JLab 4) iterator
-        // This is to support Lumino 1 (JLab 3) as well
-        for (const output of Array.from(codecell.children())) {
-          if (output instanceof WidgetRenderer) {
-            yield output;
-          }
-        }
-      }
-    }
-  }
-}
-
-/**
- * Iterate through all widget renderers in a console.
- */
-function* consoleWidgetRenderers(
-  console: CodeConsole
-): Generator<WidgetRenderer, void, unknown> {
-  for (const cell of Array.from(console.cells)) {
-    if (cell.model.type === 'code') {
-      for (const codecell of (cell as unknown as CodeCell).outputArea.widgets) {
-        for (const output of Array.from(codecell.children())) {
-          if (output instanceof WidgetRenderer) {
-            yield output;
-          }
-        }
-      }
-    }
-  }
-}
-
-/**
- * Iterate through all matching linked output views
- */
-function* outputViews(
-  app: JupyterFrontEnd,
-  path: string
-): Generator<WidgetRenderer, void, unknown> {
-  const linkedViews = filter(
-    app.shell.widgets(),
-    (w) => w.id.startsWith('LinkedOutputView-') && (w as any).path === path
-  );
-  // We use Array.from instead of using Lumino 2 (JLab 4) iterator
-  // This is to support Lumino 1 (JLab 3) as well
-  for (const view of Array.from(linkedViews)) {
-    for (const outputs of Array.from(view.children())) {
-      for (const output of Array.from(outputs.children())) {
-        if (output instanceof WidgetRenderer) {
-          yield output;
-        }
-      }
-    }
-  }
-}
-
-function* chain<T>(
-  ...args: IterableIterator<T>[]
-): Generator<T, void, undefined> {
-  for (const it of args) {
-    yield* it;
-  }
-}
-
 export function registerWidgetManager(
-  context: DocumentRegistry.IContext<INotebookModel>,
-  rendermime: IRenderMimeRegistry,
-  renderers: IterableIterator<WidgetRenderer>
+  context: DocumentRegistry.Context,
+  rendermime: IRenderMimeRegistry
 ): DisposableDelegate {
-  let wManager = Private.widgetManagerProperty.get(context);
-  if (!wManager) {
-    wManager = new WidgetManager(context, rendermime, SETTINGS, renderers);
-    Private.widgetManagerProperty.set(context, wManager);
-  }
-  return new DisposableDelegate(() => {
-    wManager!.dispose();
-  });
+  const wManager = new WidgetManager(context, rendermime, SETTINGS);
+  return new DisposableDelegate(() => wManager!.dispose());
 }
 
-function attachWidgetManagerToPanel(
-  panel: NotebookPanel | ConsolePanel,
-  app: JupyterFrontEnd
-) {
+function attachWidgetManager(panel: NotebookPanel | ConsolePanel) {
   if (panel instanceof NotebookPanel) {
-    registerWidgetManager(
-      panel.context,
-      panel.content.rendermime,
-      chain(
-        notebookWidgetRenderers(panel.content),
-        outputViews(app, panel.context.path)
-      )
-    );
+    new WidgetManager(panel.context, panel.content.rendermime, SETTINGS);
   } else if (panel instanceof ConsolePanel) {
-    // A bit of a hack to make this a 'context'
-    registerWidgetManager(
-      panel.console as any,
-      panel.console.rendermime,
-      chain(consoleWidgetRenderers(panel.console))
-    );
+    new WidgetManager(panel.console as any, panel.console.rendermime);
   }
 }
 
@@ -236,9 +127,9 @@ function activateWidgetExtension(
   );
   for (const tracker of [widgetTracker, consoleTracker]) {
     if (tracker !== null) {
-      tracker.forEach((panel) => attachWidgetManagerToPanel(panel, app));
+      tracker.forEach((panel) => attachWidgetManager(panel));
       tracker.widgetAdded.connect((sender, panel) =>
-        attachWidgetManagerToPanel(panel, app)
+        attachWidgetManager(panel)
       );
     }
   }
@@ -361,15 +252,3 @@ export default [
   controlWidgetsPlugin,
   outputWidgetPlugin,
 ];
-namespace Private {
-  /**
-   * A private attached property for a widget manager.
-   */
-  export const widgetManagerProperty = new AttachedProperty<
-    DocumentRegistry.Context,
-    WidgetManager | undefined
-  >({
-    name: 'widgetManager',
-    create: (owner: DocumentRegistry.Context): undefined => undefined,
-  });
-}

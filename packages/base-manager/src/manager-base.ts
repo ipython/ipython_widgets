@@ -217,7 +217,7 @@ export abstract class ManagerBase implements IWidgetManager {
   async get_model(model_id: string): Promise<WidgetModel> {
     let i = 0;
     while (!this._models[model_id] && i < this._sleepTimes.length) {
-      new Promise((r) => setTimeout(r, this._sleepTimes[i++]))
+      new Promise((resolve) => setTimeout(resolve, this._sleepTimes[i++]));
     }
     const modelPromise = this._models[model_id];
     if (modelPromise === undefined) {

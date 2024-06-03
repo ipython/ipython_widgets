@@ -41,9 +41,7 @@ export class WidgetRenderer
     super();
     this.mimeType = options.mimeType;
     this._pendingManagerMessage = pendingManagerMessage;
-    if (manager) {
-      this.manager = manager;
-    }
+    this.manager = manager;
   }
 
   /**
@@ -52,14 +50,14 @@ export class WidgetRenderer
    * Will accept the first non-null manager and ignore anything afterwards.
    */
 
-  set manager(value: LabWidgetManager | null) {
+  set manager(value: LabWidgetManager | undefined) {
     if (value && !this._managerIsSet) {
       // Can only set the manager once
       this._manager.resolve(value);
       this._managerIsSet = true;
-      value.restored.connect(this._rerender, this);
+      value.restored.connect(this.rerender, this);
       this.disposed.connect(() =>
-        value.restored.disconnect(this._rerender, this)
+        value.restored.disconnect(this.rerender, this)
       );
     }
   }
@@ -87,7 +85,7 @@ export class WidgetRenderer
       wModel = (await manager.get_model(source.model_id)) as DOMWidgetModel;
     } catch (err) {
       if (this._pendingManagerMessage === 'No kernel') {
-        this.node.textContent = 'Model not found in new kernel';
+        this.node.textContent = `Model not found for this kernel: ${model.data['text/plain']}`;
       } else if (manager.restoredStatus) {
         // The manager has been restored, so this error won't be going away.
         this.node.textContent = 'Error displaying widget: model not found';
@@ -131,8 +129,9 @@ export class WidgetRenderer
     super.dispose();
   }
 
-  private _rerender(): void {
-    if (this._rerenderMimeModel) {
+  rerender(): void {
+    // TODO: Add conditions for when re-rendering should occur.
+    if (this._rerenderMimeModel && !this.children.length) {
       // Clear the error message
       this.node.textContent = '';
       this.removeClass('jupyter-widgets');

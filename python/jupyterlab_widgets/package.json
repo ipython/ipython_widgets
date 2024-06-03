@@ -64,7 +64,6 @@
     "@jupyterlab/services": "^6.0.0 || ^7.0.0",
     "@jupyterlab/settingregistry": "^3.0.0 || ^4.0.0",
     "@jupyterlab/translation": "^3.0.0 || ^4.0.0",
-    "@lumino/algorithm": "^1.11.1 || ^2.0.0",
     "@lumino/coreutils": "^1.11.1 || ^2.1",
     "@lumino/disposable": "^1.10.1 || ^2.1",
     "@lumino/properties": "^2.0.1",
@@ -76,7 +75,6 @@
   },
   "devDependencies": {
     "@jupyterlab/builder": "^3.0.0 || ^4.0.0",
-    "@jupyterlab/cells": "^3.0.0 || ^4.0.0",
     "@types/jquery": "^3.5.16",
     "@types/semver": "^7.3.6",
     "@typescript-eslint/eslint-plugin": "^5.8.0",
