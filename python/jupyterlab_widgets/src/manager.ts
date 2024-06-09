@@ -605,7 +605,7 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
     manager: WidgetManager
   ) {
     if (rendermime === LabWidgetManager.globalRendermime) {
-      throw new Error('Using global rendermime is not permitted!');
+      return;
     }
     rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
     rendermime.addFactory(
