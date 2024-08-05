@@ -29,7 +29,10 @@ const requirePromise = function (pkg: string | string[]): Promise<any> {
   });
 };
 
-function moduleNameToCDNUrl(moduleName: string, moduleVersion: string): string {
+function moduleNameToCDNUrl(
+  moduleName: string,
+  moduleVersion: string
+): { packageRoot: string; pathGuess: string } {
   let packageName = moduleName;
   let fileName = 'index'; // default filename
   // if a '/' is present, like 'foo/bar', packageName is changed to 'foo', and path to 'bar'
@@ -45,7 +48,13 @@ function moduleNameToCDNUrl(moduleName: string, moduleVersion: string): string {
     fileName = moduleName.substr(index + 1);
     packageName = moduleName.substr(0, index);
   }
-  return `${cdn}${packageName}@${moduleVersion}/dist/${fileName}`;
+  if (moduleVersion.startsWith('~')) {
+    moduleVersion = moduleVersion.slice(1);
+  }
+  return {
+    packageRoot: `${cdn}${packageName}@${moduleVersion}`,
+    pathGuess: `/dist/${fileName}`,
+  };
 }
 
 /**
@@ -72,10 +81,34 @@ export function requireLoader(
   }
   function loadFromCDN(): Promise<any> {
     const conf: { paths: { [key: string]: string } } = { paths: {} };
-    conf.paths[moduleName] = moduleNameToCDNUrl(moduleName, moduleVersion);
+
+    // First, try to resolve with the CDN.
+    // We default to the previous behavior
+    // of trying for a full path. NOTE: in the
+    // future, we should let the CDN resolve itself
+    // based on the package.json contents (the next
+    // case below)
+    const { packageRoot, pathGuess } = moduleNameToCDNUrl(
+      moduleName,
+      moduleVersion
+    );
+
+    conf.paths[moduleName] = `${packageRoot}${pathGuess}`;
     require.config(conf);
-    return requirePromise([`${moduleName}`]);
+    return requirePromise([`${moduleName}`]).catch((err) => {
+      // Next, if this also errors, we the root
+      // and let the CDN decide
+      // NOTE: the `?` is added to avoid require appending a .js
+      conf.paths[moduleName] = `${packageRoot}?`;
+
+      const failedId = err.requireModules && err.requireModules[0];
+      if (failedId) {
+        require.undef(failedId);
+      }
+      require.config(conf);
+    });
   }
+
   if (onlyCDN) {
     console.log(`Loading from ${cdn} for ${moduleName}@${moduleVersion}`);
     return loadFromCDN();
