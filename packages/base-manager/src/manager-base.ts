@@ -217,7 +217,9 @@ export abstract class ManagerBase implements IWidgetManager {
   async get_model(model_id: string): Promise<WidgetModel> {
     let i = 0;
     while (!this._models[model_id] && i < this._sleepTimes.length) {
-      await new Promise((resolve) => setTimeout(resolve, this._sleepTimes[i++]));
+      await new Promise((resolve) =>
+        setTimeout(resolve, this._sleepTimes[i++])
+      );
     }
     const modelPromise = this._models[model_id];
     if (modelPromise === undefined) {
@@ -439,11 +441,6 @@ export abstract class ManagerBase implements IWidgetManager {
       });
       initComm.close();
     } catch (error) {
-      console.warn(
-        'Failed to fetch ipywidgets through the "jupyter.widget.control" comm channel, fallback to fetching individual model state. Reason:',
-        error
-      );
-      clearTimeout(timeoutID);
       // Fall back to the old implementation for old ipywidgets backend versions (ipywidgets<=7.6)
       return this._loadFromKernelModels();
     }

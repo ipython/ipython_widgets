@@ -1,6 +1,6 @@
 {
   "name": "@jupyter-widgets/base-manager",
-  "version": "1.0.9",
+  "version": "1.0.11",
   "description": "Jupyter interactive widgets - base manager",
   "repository": {
     "type": "git",
@@ -32,7 +32,7 @@
     "test:unit:ie": "npm run test:unit:default -- --browsers=IE"
   },
   "dependencies": {
-    "@jupyter-widgets/base": "^6.0.8",
+    "@jupyter-widgets/base": "^6.0.10",
     "@jupyterlab/services": "^6.0.0 || ^7.0.0",
     "@lumino/coreutils": "^1.11.1 || ^2",
     "base64-js": "^1.2.1",

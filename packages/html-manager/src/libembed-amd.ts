@@ -3,16 +3,6 @@
 
 import * as libembed from './libembed';
 
-let cdn = 'https://cdn.jsdelivr.net/npm/';
-let onlyCDN = false;
-
-// find the data-cdn for any script tag, assuming it is only used for embed-amd.js
-const scripts = document.getElementsByTagName('script');
-Array.prototype.forEach.call(scripts, (script: HTMLScriptElement) => {
-  cdn = script.getAttribute('data-jupyter-widgets-cdn') || cdn;
-  onlyCDN = onlyCDN || script.hasAttribute('data-jupyter-widgets-cdn-only');
-});
-
 /**
  * Load a package using requirejs and return a promise
  *
@@ -28,6 +18,16 @@ const requirePromise = function (pkg: string | string[]): Promise<any> {
     }
   });
 };
+
+let cdn = 'https://cdn.jsdelivr.net/npm/';
+let onlyCDN = false;
+
+// find the data-cdn for any script tag, assuming it is only used for embed-amd.js
+const scripts = document.getElementsByTagName('script');
+Array.prototype.forEach.call(scripts, (script: HTMLScriptElement) => {
+  cdn = script.getAttribute('data-jupyter-widgets-cdn') || cdn;
+  onlyCDN = onlyCDN || script.hasAttribute('data-jupyter-widgets-cdn-only');
+});
 
 function moduleNameToCDNUrl(moduleName: string, moduleVersion: string): string {
   let packageName = moduleName;

@@ -1040,24 +1040,25 @@ that the widget is registered with.
 
 ### RadioButtonsModel (@jupyter-widgets/controls, 2.0.0); RadioButtonsView (@jupyter-widgets/controls, 2.0.0)
 
-| Attribute                | Type                                 | Default                       | Help                                      |
-| ------------------------ | ------------------------------------ | ----------------------------- | ----------------------------------------- |
-| `_dom_classes`           | array of string                      | `[]`                          | CSS classes applied to widget DOM element |
-| `_model_module`          | string                               | `'@jupyter-widgets/controls'` |
-| `_model_module_version`  | string                               | `'2.0.0'`                     |
-| `_model_name`            | string                               | `'RadioButtonsModel'`         |
-| `_options_labels`        | array of string                      | `[]`                          | The labels for the options.               |
-| `_view_module`           | string                               | `'@jupyter-widgets/controls'` |
-| `_view_module_version`   | string                               | `'2.0.0'`                     |
-| `_view_name`             | string                               | `'RadioButtonsView'`          |
-| `description`            | string                               | `''`                          | Description of the control.               |
-| `description_allow_html` | boolean                              | `false`                       | Accept HTML in the description.           |
-| `disabled`               | boolean                              | `false`                       | Enable or disable user changes            |
-| `index`                  | `null` or number (integer)           | `null`                        | Selected index                            |
-| `layout`                 | reference to Layout widget           | reference to new instance     |
-| `style`                  | reference to DescriptionStyle widget | reference to new instance     | Styling customizations                    |
-| `tabbable`               | `null` or boolean                    | `null`                        | Is widget tabbable?                       |
-| `tooltip`                | `null` or string                     | `null`                        | A tooltip caption.                        |
+| Attribute                | Type                                         | Default                       | Help                                      |
+| ------------------------ | -------------------------------------------- | ----------------------------- | ----------------------------------------- |
+| `_dom_classes`           | array of string                              | `[]`                          | CSS classes applied to widget DOM element |
+| `_model_module`          | string                                       | `'@jupyter-widgets/controls'` |
+| `_model_module_version`  | string                                       | `'2.0.0'`                     |
+| `_model_name`            | string                                       | `'RadioButtonsModel'`         |
+| `_options_labels`        | array of string                              | `[]`                          | The labels for the options.               |
+| `_view_module`           | string                                       | `'@jupyter-widgets/controls'` |
+| `_view_module_version`   | string                                       | `'2.0.0'`                     |
+| `_view_name`             | string                                       | `'RadioButtonsView'`          |
+| `description`            | string                                       | `''`                          | Description of the control.               |
+| `description_allow_html` | boolean                                      | `false`                       | Accept HTML in the description.           |
+| `disabled`               | boolean                                      | `false`                       | Enable or disable user changes            |
+| `index`                  | `null` or number (integer)                   | `null`                        | Selected index                            |
+| `layout`                 | reference to Layout widget                   | reference to new instance     |
+| `orientation`            | string (one of `'horizontal'`, `'vertical'`) | `'vertical'`                  | Vertical or horizontal.                   |
+| `style`                  | reference to DescriptionStyle widget         | reference to new instance     | Styling customizations                    |
+| `tabbable`               | `null` or boolean                            | `null`                        | Is widget tabbable?                       |
+| `tooltip`                | `null` or string                             | `null`                        | A tooltip caption.                        |
 
 ### SelectModel (@jupyter-widgets/controls, 2.0.0); SelectView (@jupyter-widgets/controls, 2.0.0)
 

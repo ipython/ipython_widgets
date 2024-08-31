@@ -5936,6 +5936,13 @@
         "widget": "Layout"
       },
       {
+        "default": "vertical",
+        "enum": ["horizontal", "vertical"],
+        "help": "Vertical or horizontal.",
+        "name": "orientation",
+        "type": "string"
+      },
+      {
         "default": "reference to new instance",
         "help": "Styling customizations",
         "name": "style",

@@ -108,7 +108,11 @@ function validate(dname) {
         problems.push('Bad core version: ' + name + ' should be ' + desired);
       }
     }
-    if (names.indexOf(name) === -1) {
+    if (
+      names.indexOf(name) === -1 &&
+      !name.startsWith('@jupyter-widgets/base') &&
+      !name.startsWith('@jupyter-widgets/controls')
+    ) {
       problems.push('Unused package: ' + name);
     }
   });

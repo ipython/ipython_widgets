@@ -1,6 +1,6 @@
 {
   "name": "@jupyter-widgets/example-web2",
-  "version": "8.0.10",
+  "version": "8.0.12",
   "private": true,
   "description": "Project that tests the ability to npm install jupyter-js-widgets within an npm project.",
   "license": "BSD-3-Clause",
@@ -13,9 +13,9 @@
     "test:default": "echo \"No test specified\""
   },
   "dependencies": {
-    "@jupyter-widgets/base": "^6.0.8",
-    "@jupyter-widgets/base-manager": "^1.0.9",
-    "@jupyter-widgets/controls": "^5.0.9",
+    "@jupyter-widgets/base": "^6.0.10",
+    "@jupyter-widgets/base-manager": "^1.0.11",
+    "@jupyter-widgets/controls": "^5.0.11",
     "codemirror": "^5.48.0",
     "font-awesome": "^4.7.0"
   },

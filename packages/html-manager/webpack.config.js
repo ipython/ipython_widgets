@@ -93,4 +93,32 @@ module.exports = [
     externals: ['@jupyter-widgets/base', 'module'],
     ...options,
   },
+  {
+    // @jupyter-widgets/base ipywidgets 7
+    entry: ['./amd-public-path.js', '@jupyter-widgets/base7/lib/index'],
+    output: {
+      library: '@jupyter-widgets/base7',
+      filename: 'base7.js',
+      path: path.resolve(__dirname, 'dist', 'amd'),
+      libraryTarget: 'amd',
+      publicPath: '', // Set in amd-public-path.js
+    },
+    // 'module' is the magic requirejs dependency used to set the publicPath
+    externals: ['module'],
+    ...options,
+  },
+  {
+    // @jupyter-widgets/controls
+    entry: ['./amd-public-path.js', '@jupyter-widgets/controls7/lib/index'],
+    output: {
+      library: '@jupyter-widgets/controls7',
+      filename: 'controls7.js',
+      path: path.resolve(__dirname, 'dist', 'amd'),
+      libraryTarget: 'amd',
+      publicPath: '', // Set in amd-public-path.js
+    },
+    // 'module' is the magic requirejs dependency used to set the publicPath
+    externals: ['@jupyter-widgets/base7', 'module'],
+    ...options,
+  },
 ];

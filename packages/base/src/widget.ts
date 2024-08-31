@@ -990,6 +990,11 @@ export class JupyterLuminoPanelWidget extends Panel {
   private _view: DOMWidgetView;
 }
 
+/**
+ * @deprecated Use {@link JupyterLuminoPanelWidget} instead (Since 8.0).
+ */
+export const JupyterPhosphorPanelWidget = JupyterLuminoPanelWidget;
+
 export class DOMWidgetView extends WidgetView {
   /**
    * Public constructor
@@ -1242,6 +1247,13 @@ export class DOMWidgetView extends WidgetView {
    */
   get pWidget(): Widget {
     return this.luminoWidget;
+  }
+
+  /**
+   * @deprecated Use {@link luminoWidget} instead (Since 8.0).
+   */
+  set pWidget(value: Widget) {
+    this.luminoWidget = value;
   }
 
   el: HTMLElement; // Override typing

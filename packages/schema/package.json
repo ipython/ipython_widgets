@@ -1,6 +1,6 @@
 {
   "name": "@jupyter-widgets/schema",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "description": "Schemas for the Jupyter interactive Widgets",
   "keywords": [
     "jupyter",

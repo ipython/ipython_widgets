@@ -11,16 +11,6 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import '@fortawesome/fontawesome-free/css/v4-shims.min.css';
 
 import '@lumino/widgets/style/index.css';
-import '@jupyter-widgets/controls/css/widgets-base.css';
-
-// If lab variables are not found, we set them (we don't want to reset the variables if they are already defined)
-if (
-  getComputedStyle(document.documentElement).getPropertyValue(
-    '--jp-layout-color0'
-  ) === ''
-) {
-  require('@jupyter-widgets/controls/css/labvariables.css');
-}
 
 // Used just for the typing. We must not import the javascript because we don't
 // want to include it in the require embedding.

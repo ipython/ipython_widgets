@@ -976,11 +976,28 @@
 }
 
 /* <DEPRECATED> */
+.widget-radio-box-vertical, /* </DEPRECATED> */
+.jupyter-widget-radio-box-vertical {
+  flex-direction: column;
+}
+
+/* <DEPRECATED> */
+.widget-radio-box-horizontal, /* </DEPRECATED> */
+.jupyter-widget-radio-box-horizontal {
+  flex-direction: row;
+}
+
+/* <DEPRECATED> */
 .widget-radio-box label, /* </DEPRECATED> */
 .jupyter-widget-radio-box label {
   height: var(--jp-widgets-radio-item-height);
   line-height: var(--jp-widgets-radio-item-height);
   font-size: var(--jp-widgets-font-size);
+}
+
+.widget-radio-box-horizontal label,
+.jupyter-widget-radio-box-horizontal label {
+  margin: 0 calc(var(--jp-widgets-input-padding) * 2) 0 0;
 }
 
 /* <DEPRECATED> */

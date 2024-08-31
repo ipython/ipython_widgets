@@ -167,6 +167,7 @@ abstract class TagsInputBaseView extends DOMWidgetView {
     this.tags = [];
 
     const value: Array<any> = this.model.get('value');
+    this.inputIndex = value.length;
     for (const idx in value) {
       const index = parseInt(idx);
 

@@ -7,7 +7,7 @@ The core Jupyter Widgets packages are developed in the
 
 To install ipywidgets from git, you will need:
 
-- [yarn](https://yarnpkg.com/) package manager ** version 1.2.1 or later **
+- [yarn](https://yarnpkg.com/) package manager ** version 3.0 or later **
 
 - the latest [Jupyter Notebook development release](https://github.com/jupyter/notebook/releases)
 
