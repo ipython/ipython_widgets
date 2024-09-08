@@ -112,6 +112,9 @@ export abstract class LabWidgetManager
     super.disconnect();
     this._restoredStatus = false;
   }
+  get disconnected() {
+    return !this._restoredStatus;
+  }
 
   protected async _loadFromKernel(): Promise<void> {
     if (!this.kernel) {
@@ -469,6 +472,11 @@ export class KernelWidgetManager extends LabWidgetManager {
         this.disconnect();
         break;
     }
+  }
+
+  static existsWithActiveKenel(id: string) {
+    const widgetManager = Private.kernelWidgetManagers.get(id);
+    return !widgetManager?.disconnected;
   }
 
   _handleKernelStatusChange(
