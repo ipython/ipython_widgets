@@ -367,7 +367,7 @@ export class KernelWidgetManager extends LabWidgetManager {
     rendermime?: IRenderMimeRegistry,
     pendingManagerMessage = 'Loading widget ...'
   ) {
-    const instance = Private.kernelWidgetManagers.get(kernel.id);
+    const instance = Private.managers.get(kernel.id);
     if (instance) {
       instance._useKernel(kernel);
       KernelWidgetManager.configureRendermime(
@@ -381,7 +381,7 @@ export class KernelWidgetManager extends LabWidgetManager {
       throw new Error('Kernel does not have handleComms enabled');
     }
     super(LabWidgetManager.globalRendermime);
-    Private.kernelWidgetManagers.set(kernel.id, this);
+    Private.managers.set(kernel.id, this);
     this.loadCustomWidgetDefinitions();
     LabWidgetManager.WIDGET_REGISTRY.changed.connect(() =>
       this.loadCustomWidgetDefinitions()
@@ -475,8 +475,28 @@ export class KernelWidgetManager extends LabWidgetManager {
   }
 
   static existsWithActiveKenel(id: string) {
-    const widgetManager = Private.kernelWidgetManagers.get(id);
+    const widgetManager = Private.managers.get(id);
     return !widgetManager?.disconnected;
+  }
+
+  /**
+   * Get the KernelWidgetManager that owns the model.
+   */
+  static async getManager(
+    model_id: string,
+    delays = [100, 1000]
+  ): Promise<KernelWidgetManager> {
+    for (const sleepTime of delays) {
+      for (const wManager of Private.managers.values()) {
+        if (wManager.has_model(model_id)) {
+          return wManager;
+        }
+      }
+      await new Promise((resolve) => setTimeout(resolve, sleepTime));
+    }
+    throw new Error(
+      `Failed to locate the KernelWidgetManager for model_id='${model_id}'`
+    );
   }
 
   _handleKernelStatusChange(
@@ -516,7 +536,7 @@ export class KernelWidgetManager extends LabWidgetManager {
     }
     super.dispose();
     KernelWidgetManager.configureRendermime(this.rendermime);
-    Private.kernelWidgetManagers.delete(this.kernel.id);
+    Private.managers.delete(this.kernel.id);
     this._handleKernelChanged({
       name: 'kernel',
       oldValue: this._kernel,
@@ -830,27 +850,11 @@ export namespace WidgetManager {
 }
 
 /**
- * Get the widgetManager that owns the model.
- */
-export async function getWidgetManager(
-  model_id: string
-): Promise<KernelWidgetManager | undefined> {
-  for (const sleepTime of [0, 50, 1000]) {
-    await new Promise((resolve) => setTimeout(resolve, sleepTime));
-    for (const wManager of Private.kernelWidgetManagers.values()) {
-      if (wManager.has_model(model_id)) {
-        return wManager;
-      }
-    }
-  }
-  return undefined;
-}
-
-/**
  * A namespace for private data
  */
 namespace Private {
-  export const kernelWidgetManagers = new Map<string, KernelWidgetManager>();
+  export const managers = new Map<string, KernelWidgetManager>();
+
   export const widgetManagerProperty = new AttachedProperty<
     DocumentRegistry.Context,
     WidgetManager | undefined

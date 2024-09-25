@@ -11,7 +11,7 @@ import { IRenderMime } from '@jupyterlab/rendermime-interfaces';
 
 import { DOMWidgetModel } from '@jupyter-widgets/base';
 
-import { LabWidgetManager, getWidgetManager } from './manager';
+import { KernelWidgetManager } from './manager';
 
 /**
  * A renderer for widgets.
@@ -35,7 +35,7 @@ export class WidgetRenderer
 {
   constructor(
     options: IRenderMime.IRendererOptions,
-    manager?: LabWidgetManager,
+    manager?: KernelWidgetManager,
     pendingManagerMessage = ''
   ) {
     super();
@@ -50,7 +50,7 @@ export class WidgetRenderer
    * Will accept the first non-null manager and ignore anything afterwards.
    */
 
-  set manager(value: LabWidgetManager | undefined) {
+  set manager(value: KernelWidgetManager | undefined) {
     if (value && !this._managerIsSet) {
       // Can only set the manager once
       this._manager.resolve(value);
@@ -68,15 +68,20 @@ export class WidgetRenderer
     // If there is no model id, the view was removed, so hide the node.
     if (source.model_id === '') {
       this.hide();
-      return Promise.resolve();
+      return;
     }
     if (!this._pendingManagerMessage && !this._managerIsSet) {
-      this.manager = await getWidgetManager(source.model_id);
+      try {
+        this.manager = await KernelWidgetManager.getManager(source.model_id);
+      } catch {
+        this.node.textContent = `KernelWidgetManager not found for model: ${model.data['text/plain']}`;
+        return;
+      }
     }
     this.node.textContent = `${
       this._pendingManagerMessage || model.data['text/plain']
     }`;
-    const manager: LabWidgetManager = await this._manager.promise;
+    const manager = await this._manager.promise;
     this._rerenderMimeModel = model;
 
     let wModel: DOMWidgetModel;
@@ -85,7 +90,7 @@ export class WidgetRenderer
       wModel = (await manager.get_model(source.model_id)) as DOMWidgetModel;
     } catch (err) {
       if (this._pendingManagerMessage === 'No kernel') {
-        this.node.textContent = `Model not found for this kernel: ${model.data['text/plain']}`;
+        this.node.textContent = `Model not found: ${model.data['text/plain']}`;
       } else if (manager.restoredStatus) {
         // The manager has been restored, so this error won't be going away.
         this.node.textContent = 'Error displaying widget: model not found';
@@ -93,7 +98,7 @@ export class WidgetRenderer
         console.error(err);
       }
       // Store the model for a possible rerender
-      return Promise.resolve();
+      return;
     }
     let widget: LuminoWidget;
     try {
@@ -146,7 +151,7 @@ export class WidgetRenderer
    * The mimetype being rendered.
    */
   readonly mimeType: string;
-  private _manager = new PromiseDelegate<LabWidgetManager>();
+  private _manager = new PromiseDelegate<KernelWidgetManager>();
   private _managerIsSet = false;
   private _pendingManagerMessage: string;
   private _rerenderMimeModel: IRenderMime.IMimeModel | null = null;

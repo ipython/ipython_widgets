@@ -8,11 +8,7 @@ export default WidgetManagerProvider;
 
 export { registerWidgetManager } from './plugin';
 
-export {
-  KernelWidgetManager,
-  LabWidgetManager,
-  WidgetManager,
-} from './manager';
+export { KernelWidgetManager, WidgetManager } from './manager';
 
 export { WidgetRenderer } from './renderer';
 
