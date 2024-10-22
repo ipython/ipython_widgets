@@ -1205,6 +1205,13 @@ export class DOMWidgetView extends WidgetView {
     return super.remove();
   }
 
+  /**
+   * @deprecated Use {@link processLuminoMessage} instead (Since 8.0).
+   */
+  processPhosphorMessage(msg: Message): void {
+    this.processLuminoMessage(msg);
+  }
+
   processLuminoMessage(msg: Message): void {
     switch (msg.type) {
       case 'after-attach':
