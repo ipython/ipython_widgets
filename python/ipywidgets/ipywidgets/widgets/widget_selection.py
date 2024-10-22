@@ -429,7 +429,7 @@ class ToggleButtons(_Selection):
 
     icons: list
         Icons to show on the buttons. This must be the name
-        of a font-awesome icon. See `http://fontawesome.io/icons/`
+        of a (v5) font-awesome icon. See `https://fontawesome.com/v5/search`
         for a list of icons.
 
     button_style: str
@@ -443,7 +443,7 @@ class ToggleButtons(_Selection):
     _model_name = Unicode('ToggleButtonsModel').tag(sync=True)
 
     tooltips = TypedTuple(Unicode(), help="Tooltips for each button.").tag(sync=True)
-    icons = TypedTuple(Unicode(), help="Icons names for each button (FontAwesome names without the fa- prefix).").tag(sync=True)
+    icons = TypedTuple(Unicode(), help="Icons names for each button (FontAwesome v5 names without the fa- prefix).").tag(sync=True)
     style = InstanceDict(ToggleButtonsStyle).tag(sync=True, **widget_serialization)
 
     button_style = CaselessStrEnum(
