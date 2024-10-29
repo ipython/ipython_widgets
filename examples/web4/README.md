@@ -6,7 +6,7 @@ This is an example project showing how to embed widgets in an HTML document.
 
 We use the local `index.built.js` that we build to make sure this example
 reflects the current state of the source repository. To use the latest release
-of the HTML wiget manager in your own project, copy the `index.html` file and
+of the HTML widget manager in your own project, copy the `index.html` file and
 replace
 
 `<script src="./built/index.built.js"></script>`
