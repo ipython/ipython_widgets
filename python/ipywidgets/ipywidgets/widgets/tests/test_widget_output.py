@@ -237,3 +237,16 @@ def test_append_display_data():
         },
     )
     assert widget.outputs == expected1 or widget.outputs == expected2
+
+
+def test_kernel_side_output():
+    output = widget_output.Output()
+    with output:
+        print("snakes!")
+    assert output.outputs == (
+        {
+            'output_type': 'stream',
+            'name': 'stdout',
+            'text': 'snakes!
+        }
+    )

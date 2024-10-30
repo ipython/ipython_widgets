@@ -62,6 +62,10 @@ class Output(DOMWidget):
 
     __counter = 0
 
+    def __init__(self, *args, **kwargs):
+        super(Output, self).__init__(*args, **kwargs)
+        self._hooks = []
+
     def clear_output(self, *pargs, **kwargs):
         """
         Clear the content of the output widget.
@@ -108,6 +112,17 @@ class Output(DOMWidget):
         """Called upon entering output widget context manager."""
         self._flush()
         ip = get_ipython()
+        if hasattr(ip.display_pub, "register_hook") and hasattr(sys.stdout, "register_hook"):
+            def hook(msg):
+                if msg["msg_type"] == "display_data":
+                    self.outputs += ({"output_type": "display_data", "data": msg["content"]["data"], "metadata": msg["content"]["metadata"]},)
+                    return None
+                return msg
+            ip.display_pub.register_hook(hook)
+            sys.stdout.register_hook(hook)
+            self._hooks.append(hook)
+            return
+
         kernel = None
         if ip and getattr(ip, "kernel", None) is not None:
             kernel = ip.kernel
@@ -147,6 +162,12 @@ class Output(DOMWidget):
                     u'ename': etype.__name__
                     })
         self._flush()
+        if self._hooks:
+            ip = get_ipython()
+            hook = self._hooks.pop()
+            ip.display_pub.unregister_hook(hook)
+            sys.stdout.unregister_hook(hook)
+            return
         self.__counter -= 1
         if self.__counter == 0:
             self.msg_id = ''
