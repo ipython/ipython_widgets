@@ -33,10 +33,10 @@
     "test:unit:ie": "npm run test:unit:default -- --browsers=IE"
   },
   "dependencies": {
-    "@jupyterlab/services": "^6.0.0 || ^7.0.0",
-    "@lumino/coreutils": "^1.11.1 || ^2.1",
-    "@lumino/messaging": "^1.10.1 || ^2.1",
-    "@lumino/widgets": "^1.30.0 || ^2.1",
+    "@jupyterlab/services": "^6 || ^7",
+    "@lumino/coreutils": "^1 || ^2",
+    "@lumino/messaging": "^1 || ^2",
+    "@lumino/widgets": "^1 || ^2",
     "@types/backbone": "1.4.14",
     "@types/lodash": "^4.14.134",
     "backbone": "1.4.0",

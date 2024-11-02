@@ -28,8 +28,8 @@
     "@jupyter-widgets/html-manager": "^1.0.13",
     "@jupyter-widgets/output": "^6.0.10",
     "@jupyterlab/services": "^6.0.0 || ^7.0.0",
-    "@lumino/messaging": "^1.10.1 || ^2.1",
-    "@lumino/widgets": "^1.30.0 || ^2.1",
+    "@lumino/messaging": "^1 || ^2",
+    "@lumino/widgets": "^1 || ^2",
     "backbone": "1.4.0"
   },
   "devDependencies": {
