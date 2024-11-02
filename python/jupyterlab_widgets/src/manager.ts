@@ -112,9 +112,6 @@ export abstract class LabWidgetManager
     super.disconnect();
     this._restoredStatus = false;
   }
-  get disconnected() {
-    return !this._restoredStatus;
-  }
 
   protected async _loadFromKernel(): Promise<void> {
     if (!this.kernel) {
@@ -419,9 +416,7 @@ export class KernelWidgetManager extends LabWidgetManager {
       this._handleKernelConnectionStatusChange,
       this
     );
-    this._restoredStatus = false;
-    this._kernelRestoreInProgress = true;
-    this.clear_state().then(() => this.restoreWidgets());
+    this.restoreWidgets();
   }
 
   /**
@@ -476,7 +471,7 @@ export class KernelWidgetManager extends LabWidgetManager {
 
   static existsWithActiveKenel(id: string) {
     const widgetManager = Private.managers.get(id);
-    return !widgetManager?.disconnected;
+    return widgetManager?._restoredStatus;
   }
 
   /**
@@ -515,7 +510,10 @@ export class KernelWidgetManager extends LabWidgetManager {
    * Restore widgets from kernel.
    */
   async restoreWidgets(): Promise<void> {
+    this._restoredStatus = false;
+    this._kernelRestoreInProgress = true;
     try {
+      await this.clear_state();
       await this._loadFromKernel();
     } catch (err) {
       // Do nothing
