@@ -72,7 +72,7 @@ export class WidgetRenderer
     }
     if (!this._pendingManagerMessage && !this._managerIsSet) {
       try {
-        this.manager = await KernelWidgetManager.getManager(source.model_id);
+        this.manager = await KernelWidgetManager.findManager(source.model_id);
       } catch {
         this.node.textContent = `KernelWidgetManager not found for model: ${model.data['text/plain']}`;
         return;

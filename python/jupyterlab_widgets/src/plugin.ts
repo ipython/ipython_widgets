@@ -26,7 +26,6 @@ import { WidgetRenderer } from './renderer';
 
 import {
   KernelWidgetManager,
-  LabWidgetManager,
   WIDGET_VIEW_MIMETYPE,
   WidgetManager,
 } from './manager';
@@ -103,23 +102,7 @@ function activateWidgetExtension(
 ): base.IJupyterWidgetRegistry {
   const { commands } = app;
   const trans = (translator ?? nullTranslator).load('jupyterlab_widgets');
-
-  app.serviceManager.kernels.runningChanged.connect((models) => {
-    for (const model of models.running()) {
-      if (
-        model &&
-        model.name === 'python3' &&
-        model.execution_state !== 'starting' &&
-        !KernelWidgetManager.existsWithActiveKenel(model.id)
-      ) {
-        const kernel = app.serviceManager.kernels.connectTo({ model: model });
-        if (kernel.handleComms) {
-          new KernelWidgetManager(kernel);
-        }
-      }
-    }
-  });
-
+  KernelWidgetManager.kernels = app.serviceManager.kernels;
   if (settingRegistry !== null) {
     settingRegistry
       .load(managerPlugin.id)
@@ -132,7 +115,7 @@ function activateWidgetExtension(
       });
   }
   WidgetManager.loggerRegistry = loggerRegistry;
-  LabWidgetManager.globalRendermime = rendermime;
+  KernelWidgetManager.rendermime = rendermime;
   // Add a default widget renderer.
   rendermime.addFactory(
     {
@@ -175,7 +158,7 @@ function activateWidgetExtension(
 
   return {
     registerWidget(data: base.IWidgetRegistryData): void {
-      LabWidgetManager.WIDGET_REGISTRY.push(data);
+      KernelWidgetManager.WIDGET_REGISTRY.push(data);
     },
   };
 }

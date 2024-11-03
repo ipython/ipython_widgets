@@ -66,15 +66,7 @@ export const WIDGET_STATE_MIMETYPE =
 /**
  * A widget manager that returns Lumino widgets.
  */
-export abstract class LabWidgetManager
-  extends ManagerBase
-  implements IDisposable
-{
-  constructor(rendermime: IRenderMimeRegistry) {
-    super();
-    this._rendermime = rendermime;
-  }
-
+abstract class LabWidgetManager extends ManagerBase implements IDisposable {
   /**
    * Default callback handler to emit unhandled kernel messages.
    */
@@ -181,7 +173,6 @@ export abstract class LabWidgetManager
       return;
     }
     this._isDisposed = true;
-    this._rendermime = null!;
 
     if (this._commRegistration) {
       this._commRegistration.dispose();
@@ -245,10 +236,6 @@ export abstract class LabWidgetManager
 
   abstract get kernel(): Kernel.IKernelConnection | null;
 
-  get rendermime(): IRenderMimeRegistry {
-    return this._rendermime;
-  }
-
   /**
    * A signal emitted when state is restored to the widget manager.
    *
@@ -298,6 +285,7 @@ export abstract class LabWidgetManager
    * @return Promise that resolves when the widget state is cleared.
    */
   async clear_state(): Promise<void> {
+    this._restoredStatus = false;
     await super.clear_state();
     this._modelsSync = new Map();
   }
@@ -331,15 +319,13 @@ export abstract class LabWidgetManager
     await this.handle_comm_open(oldComm, msg);
   };
 
-  static globalRendermime: IRenderMimeRegistry;
+  static rendermime: IRenderMimeRegistry;
 
   protected _restored = new Signal<this, void>(this);
   protected _restoredStatus = false;
-  protected _kernelRestoreInProgress = false;
 
   private _isDisposed = false;
   private _registry: SemVerCache<ExportData> = new SemVerCache<ExportData>();
-  private _rendermime: IRenderMimeRegistry;
 
   private _commRegistration: IDisposable;
 
@@ -352,46 +338,31 @@ export abstract class LabWidgetManager
 }
 
 /**
- * A singleton widget manager per kernel for the lifecycle of the kernel.
- * The factory of the rendermime will be updated to use the widgetManager
- * directly if it isn't the globalRendermime.
- *
- * Note: The rendermime of the instance is always the global rendermime.
+ * KernelWidgetManager is singleton widget manager per kernel.id.
+ * This class should not be created directly or subclassed, instead use
+ * the class method `KernelWidgetManager.getManager(kernel)`.
  */
 export class KernelWidgetManager extends LabWidgetManager {
-  constructor(
-    kernel: Kernel.IKernelConnection,
-    rendermime?: IRenderMimeRegistry,
-    pendingManagerMessage = 'Loading widget ...'
-  ) {
-    const instance = Private.managers.get(kernel.id);
-    if (instance) {
-      instance._useKernel(kernel);
-      KernelWidgetManager.configureRendermime(
-        rendermime,
-        instance,
-        pendingManagerMessage
-      );
-      return instance;
+  constructor(kernel: Kernel.IKernelConnection) {
+    if (Private.managers.has(kernel.id)) {
+      throw new Error('A manager already exists!');
     }
     if (!kernel.handleComms) {
       throw new Error('Kernel does not have handleComms enabled');
     }
-    super(LabWidgetManager.globalRendermime);
+    super();
     Private.managers.set(kernel.id, this);
     this.loadCustomWidgetDefinitions();
     LabWidgetManager.WIDGET_REGISTRY.changed.connect(() =>
       this.loadCustomWidgetDefinitions()
     );
-    this._useKernel(kernel);
-    KernelWidgetManager.configureRendermime(
-      rendermime,
-      this,
-      pendingManagerMessage
-    );
+    this._updateKernel(kernel);
   }
 
-  _useKernel(this: KernelWidgetManager, kernel: Kernel.IKernelConnection) {
+  private _updateKernel(
+    this: KernelWidgetManager,
+    kernel: Kernel.IKernelConnection
+  ) {
     if (!kernel.handleComms || this._kernel === kernel) {
       return;
     }
@@ -409,13 +380,15 @@ export class KernelWidgetManager extends LabWidgetManager {
         this._handleKernelConnectionStatusChange,
         this
       );
+      this._kernel.disposed.disconnect(this._onKernelDisposed, this);
     }
     this._kernel = kernel;
-    this._kernel.statusChanged.connect(this._handleKernelStatusChange, this);
-    this._kernel.connectionStatusChanged.connect(
+    kernel.statusChanged.connect(this._handleKernelStatusChange, this);
+    kernel.connectionStatusChanged.connect(
       this._handleKernelConnectionStatusChange,
       this
     );
+    kernel.disposed.connect(this._onKernelDisposed, this);
     this.restoreWidgets();
   }
 
@@ -437,7 +410,7 @@ export class KernelWidgetManager extends LabWidgetManager {
     manager?: KernelWidgetManager,
     pendingManagerMessage = ''
   ) {
-    if (!rendermime || rendermime === LabWidgetManager.globalRendermime) {
+    if (!rendermime || rendermime === LabWidgetManager.rendermime) {
       return;
     }
     rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
@@ -457,11 +430,7 @@ export class KernelWidgetManager extends LabWidgetManager {
   ): void {
     switch (status) {
       case 'connected':
-        // Only restore if we aren't currently trying to restore from the kernel
-        // (for example, in our initial restore from the constructor).
-        if (!this._kernelRestoreInProgress) {
-          this.restoreWidgets();
-        }
+        this.restoreWidgets();
         break;
       case 'disconnected':
         this.disconnect();
@@ -469,15 +438,10 @@ export class KernelWidgetManager extends LabWidgetManager {
     }
   }
 
-  static existsWithActiveKenel(id: string) {
-    const widgetManager = Private.managers.get(id);
-    return widgetManager?._restoredStatus;
-  }
-
   /**
-   * Get the KernelWidgetManager that owns the model.
+   * Find the KernelWidgetManager that owns the model.
    */
-  static async getManager(
+  static async findManager(
     model_id: string,
     delays = [100, 1000]
   ): Promise<KernelWidgetManager> {
@@ -494,6 +458,28 @@ export class KernelWidgetManager extends LabWidgetManager {
     );
   }
 
+  /**
+   * The correct way to get a KernelWidgetManager
+   * @param kernel IKernelConnection
+   * @returns
+   */
+  static async getManager(
+    kernel: Kernel.IKernelConnection
+  ): Promise<KernelWidgetManager> {
+    let manager = Private.managers.get(kernel.id);
+    if (!manager) {
+      manager = new KernelWidgetManager(kernel);
+    }
+    if (kernel.handleComms) {
+      manager._updateKernel(kernel);
+      if (!manager.restoredStatus) {
+        const restored = manager.restored;
+        await new Promise((resolve) => restored.connect(resolve));
+      }
+    }
+    return manager;
+  }
+
   _handleKernelStatusChange(
     sender: Kernel.IKernelConnection,
     status: Kernel.Status
@@ -506,23 +492,36 @@ export class KernelWidgetManager extends LabWidgetManager {
     }
   }
 
+  async _onKernelDisposed() {
+    const model = await KernelWidgetManager.kernels.findById(this.kernel?.id);
+    if (model) {
+      const kernel = KernelWidgetManager.kernels.connectTo({ model });
+      this._updateKernel(kernel);
+    }
+  }
+
   /**
    * Restore widgets from kernel.
    */
   async restoreWidgets(): Promise<void> {
+    if (this._kernelRestoreInProgress) {
+      return;
+    }
     this._restoredStatus = false;
     this._kernelRestoreInProgress = true;
     try {
       await this.clear_state();
       await this._loadFromKernel();
-    } catch (err) {
-      // Do nothing
+    } catch {
+      /* empty */
+    } finally {
+      this._restoredStatus = true;
+      this._kernelRestoreInProgress = false;
+      this.triggerRestored();
     }
-    this.triggerRestored();
   }
 
   triggerRestored() {
-    this._restoredStatus = true;
     this._restored.emit();
   }
   /**
@@ -533,7 +532,6 @@ export class KernelWidgetManager extends LabWidgetManager {
       return;
     }
     super.dispose();
-    KernelWidgetManager.configureRendermime(this.rendermime);
     Private.managers.delete(this.kernel.id);
     this._handleKernelChanged({
       name: 'kernel',
@@ -557,9 +555,9 @@ export class KernelWidgetManager extends LabWidgetManager {
   filterModelState(serialized_state: any): any {
     return this.filterExistingModelState(serialized_state);
   }
-
+  static kernels: Kernel.IManager;
   private _kernel: Kernel.IKernelConnection;
-  protected _kernelRestoreInProgress = false;
+  private _kernelRestoreInProgress = false;
 }
 
 /**
@@ -630,7 +628,7 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
     rendermime: IRenderMimeRegistry,
     manager: WidgetManager
   ) {
-    if (rendermime === LabWidgetManager.globalRendermime) {
+    if (rendermime === LabWidgetManager.rendermime) {
       return;
     }
     rendermime.removeMimeType(WIDGET_VIEW_MIMETYPE);
@@ -648,7 +646,7 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
     let wManager: KernelWidgetManager | undefined;
     await this.context.sessionContext.ready;
     if (this.kernel) {
-      wManager = new KernelWidgetManager(this.kernel);
+      wManager = await KernelWidgetManager.getManager(this.kernel);
     }
     if (wManager === this._widgetManager) {
       return;
@@ -796,7 +794,6 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
     this._renderers = null!;
     this._context = null!;
     this._context = null!;
-    this._rendermime = null!;
     this._settings = null!;
   }
 
@@ -831,8 +828,6 @@ export class WidgetManager extends Backbone.Model implements IDisposable {
     }
   }
   static loggerRegistry: ILoggerRegistry | null;
-  // protected _restored = new Signal<this, void>(this);
-  // protected _restoredStatus = false;
   private _isDisposed = false;
   private _context: DocumentRegistry.Context;
   private _rendermime: IRenderMimeRegistry;

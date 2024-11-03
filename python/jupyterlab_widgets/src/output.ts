@@ -9,7 +9,7 @@ import { Panel } from '@lumino/widgets';
 
 import { IRenderMimeRegistry } from '@jupyterlab/rendermime';
 
-import { LabWidgetManager } from './manager';
+import { KernelWidgetManager } from './manager';
 
 import { OutputAreaModel, OutputArea } from '@jupyterlab/outputarea';
 
@@ -44,7 +44,7 @@ export class OutputModel extends outputBase.OutputModel {
    * Reset the message id.
    */
   reset_msg_id(): void {
-    const kernel = this.widget_manager.kernel;
+    const kernel = (this.widget_manager as KernelWidgetManager).kernel;
     const msgId = this.get('msg_id');
     const oldMsgId = this.previous('msg_id');
 
@@ -97,8 +97,6 @@ export class OutputModel extends outputBase.OutputModel {
       this._outputs.fromJSON(JSON.parse(JSON.stringify(this.get('outputs'))));
     }
   }
-
-  widget_manager: LabWidgetManager;
 
   private _msgHook: (msg: KernelMessage.IIOPubMessage) => boolean;
   private _outputs: OutputAreaModel;
