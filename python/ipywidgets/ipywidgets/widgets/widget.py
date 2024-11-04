@@ -6,20 +6,18 @@
 in the Jupyter notebook front-end.
 """
 import os
-import sys
 import typing
+import weakref
 from contextlib import contextmanager
 from collections.abc import Iterable
 from IPython import get_ipython
 from traitlets import (
-    Any, HasTraits, Unicode, Dict, Instance, List, Int, Set, Bytes, observe, default, Container,
+    Any, HasTraits, Unicode, Dict, Instance, List, Int, Set, observe, default, Container,
     Undefined)
 from json import loads as jsonloads, dumps as jsondumps
 from .. import comm
 
 from base64 import standard_b64encode
-
-from .utils import deprecation, _get_frame
 
 from .._version import __protocol_version__, __control_protocol_version__, __jupyter_widgets_base_version__
 
@@ -41,17 +39,34 @@ def envset(name, default):
 PROTOCOL_VERSION_MAJOR = __protocol_version__.split('.')[0]
 CONTROL_PROTOCOL_VERSION_MAJOR = __control_protocol_version__.split('.')[0]
 JUPYTER_WIDGETS_ECHO = envset('JUPYTER_WIDGETS_ECHO', default=True)
-# we keep a strong reference for every widget created, for a discussion on using weak references see:
+# for a discussion on using weak references see:
 #  https://github.com/jupyter-widgets/ipywidgets/issues/1345
-_instances : typing.MutableMapping[str, "Widget"] = {}
+
+def enable_weakreference():
+    """Use a WeakValueDictionary to store references to Widget instances.
+
+    A strong reference must be kept to widgets. 
+    """
+    if not isinstance(Widget._instances, weakref.WeakValueDictionary):
+        Widget._instances = weakref.WeakValueDictionary(Widget._instances)
+
+def disable_weakreference():
+    """Use a standard dictionary to store references to Widget instances (default behavior).
+
+    Note: this is the default setting and maintains a strong reference to the
+    the widget preventing automatic garbage collection. When the widget is closed
+    it can be garbage collected.
+    """
+    if isinstance(Widget._instances, weakref.WeakValueDictionary):
+        Widget._instances = dict(Widget._instances)
 
 def _widget_to_json(x, obj):
-    if isinstance(x, dict):
-        return {k: _widget_to_json(v, obj) for k, v in x.items()}
+    if isinstance(x, Widget):
+        return f"IPY_MODEL_{x.model_id}"
     elif isinstance(x, (list, tuple)):
         return [_widget_to_json(v, obj) for v in x]
-    elif isinstance(x, Widget):
-        return "IPY_MODEL_" + x.model_id
+    elif isinstance(x, dict):
+        return {k: _widget_to_json(v, obj) for k, v in x.items()}
     else:
         return x
 
@@ -60,8 +75,8 @@ def _json_to_widget(x, obj):
         return {k: _json_to_widget(v, obj) for k, v in x.items()}
     elif isinstance(x, (list, tuple)):
         return [_json_to_widget(v, obj) for v in x]
-    elif isinstance(x, str) and x.startswith('IPY_MODEL_') and x[10:] in _instances:
-        return _instances[x[10:]]
+    elif isinstance(x, str) and x.startswith("IPY_MODEL_") and x[10:] in Widget._instances:
+        return Widget._instances[x[10:]]
     else:
         return x
 
@@ -215,18 +230,6 @@ class CallbackDispatcher(LoggingHasTraits):
         elif not remove and callback not in self.callbacks:
             self.callbacks.append(callback)
 
-def _show_traceback(method):
-    """decorator for showing tracebacks"""
-    def m(self, *args, **kwargs):
-        try:
-            return(method(self, *args, **kwargs))
-        except Exception as e:
-            ip = get_ipython()
-            if ip is None:
-                self.log.warning("Exception in widget method %s: %s", method, e, exc_info=True)
-            else:
-                ip.showtraceback()
-    return m
 
 
 class WidgetRegistry:
@@ -305,49 +308,11 @@ class Widget(LoggingHasTraits):
     _widget_construction_callback = None
     _control_comm = None
 
-    @_staticproperty
-    def widgets():
-        # Because this is a static attribute, it will be accessed when initializing this class. In that case, since a user
-        # did not explicitly try to use this attribute, we do not want to throw a deprecation warning.
-        # So we check if the thing calling this static property is one of the known initialization functions in traitlets.
-        frame = _get_frame(2)
-        if not (frame.f_code.co_filename == TRAITLETS_FILE and (frame.f_code.co_name in ('getmembers', 'setup_instance', 'setup_class'))):
-            deprecation("Widget.widgets is deprecated.")
-        return _instances
-
-    @_staticproperty
-    def _active_widgets():
-        # Because this is a static attribute, it will be accessed when initializing this class. In that case, since a user
-        # did not explicitly try to use this attribute, we do not want to throw a deprecation warning.
-        # So we check if the thing calling this static property is one of the known initialization functions in traitlets.
-        frame = _get_frame(2)
-        if not (frame.f_code.co_filename == TRAITLETS_FILE and (frame.f_code.co_name in ('getmembers', 'setup_instance', 'setup_class'))):
-            deprecation("Widget._active_widgets is deprecated.")
-        return _instances
-
-    @_staticproperty
-    def _widget_types():
-        # Because this is a static attribute, it will be accessed when initializing this class. In that case, since a user
-        # did not explicitly try to use this attribute, we do not want to throw a deprecation warning.
-        # So we check if the thing calling this static property is one of the known initialization functions in traitlets.
-        frame = _get_frame(2)
-        if not (frame.f_code.co_filename == TRAITLETS_FILE and (frame.f_code.co_name in ('getmembers', 'setup_instance', 'setup_class'))):
-            deprecation("Widget._widget_types is deprecated.")
-        return _registry
-
-    @_staticproperty
-    def widget_types():
-        # Because this is a static attribute, it will be accessed when initializing this class. In that case, since a user
-        # did not explicitly try to use this attribute, we do not want to throw a deprecation warning.
-        # So we check if the thing calling this static property is one of the known initialization functions in traitlets.
-        frame = _get_frame(2)
-        if not (frame.f_code.co_filename == TRAITLETS_FILE and (frame.f_code.co_name in ('getmembers', 'setup_instance', 'setup_class'))):
-            deprecation("Widget.widget_types is deprecated.")
-        return _registry
+    _instances: typing.ClassVar[typing.MutableMapping[str, "Widget"]] = {}
 
     @classmethod
     def close_all(cls):
-        for widget in list(_instances.values()):
+        for widget in list(Widget._instances.values()):
             widget.close()
 
     @staticmethod
@@ -389,7 +354,7 @@ class Widget(LoggingHasTraits):
         if method == 'request_states':
             # Send back the full widgets state
             cls.get_manager_state()
-            widgets = _instances.values()
+            widgets = cls._instances.values()
             full_state = {}
             drop_defaults = False
             for widget in widgets:
@@ -430,8 +395,8 @@ class Widget(LoggingHasTraits):
             _put_buffers(state, data['buffer_paths'], msg['buffers'])
         widget.set_state(state)
 
-    @staticmethod
-    def get_manager_state(drop_defaults=False, widgets=None):
+    @classmethod
+    def get_manager_state(cls, drop_defaults=False, widgets=None):
         """Returns the full state for a widget manager for embedding
 
         :param drop_defaults: when True, it will not include default value
@@ -440,7 +405,7 @@ class Widget(LoggingHasTraits):
         """
         state = {}
         if widgets is None:
-            widgets = _instances.values()
+            widgets = cls._instances.values()
         for widget in widgets:
             state[widget.model_id] = widget._get_embed_state(drop_defaults=drop_defaults)
         return {'version_major': 2, 'version_minor': 0, 'state': state}
@@ -461,7 +426,7 @@ class Widget(LoggingHasTraits):
         return state
 
     def get_view_spec(self):
-        return dict(version_major=2, version_minor=0, model_id=self._model_id)
+        return {"version_major": 2, "version_minor": 0, "model_id": self.model_id}
 
     #-------------------------------------------------------------------------
     # Traits
@@ -485,6 +450,8 @@ class Widget(LoggingHasTraits):
 
     keys = List(help="The traits which are synced.")
 
+    _model_id: None | str = None
+
     @default('keys')
     def _default_keys(self):
         return [name for name in self.traits(sync=True)]
@@ -499,11 +466,12 @@ class Widget(LoggingHasTraits):
     #-------------------------------------------------------------------------
     def __init__(self, **kwargs):
         """Public constructor"""
-        self._model_id = kwargs.pop('model_id', None)
+        if 'model_id' in kwargs:
+            self.comm = self._create_comm(kwargs.pop('model_id'))
         super().__init__(**kwargs)
+        self.open()
 
         Widget._call_widget_constructed(self)
-        self.open()
     
     def __copy__(self):
         raise NotImplementedError("Widgets cannot be copied; custom implementation required")
@@ -519,53 +487,76 @@ class Widget(LoggingHasTraits):
     # Properties
     #-------------------------------------------------------------------------
 
+
+    @default('comm')
+    def _default_comm(self):
+        return self._create_comm()
+
     def open(self):
         """Open a comm to the frontend if one isn't already open."""
-        if self.comm is None:
-            state, buffer_paths, buffers = _remove_buffers(self.get_state())
+        assert self.model_id
 
-            args = dict(target_name='jupyter.widget',
-                        data={'state': state, 'buffer_paths': buffer_paths},
-                        buffers=buffers,
-                        metadata={'version': __protocol_version__}
-                        )
-            if self._model_id is not None:
-                args['comm_id'] = self._model_id
 
-            self.comm = comm.create_comm(**args)
+    def _create_comm(self, comm_id=None):
+        """Open a new comm to the frontend."""
+        state, buffer_paths, buffers = _remove_buffers(self.get_state())
+        self.comm = comm_ = comm.create_comm(
+            target_name="jupyter.widget",
+            data={"state": state, "buffer_paths": buffer_paths},
+            buffers=buffers,
+            metadata={"version": __protocol_version__},
+            comm_id=comm_id,
+        )        
+        return comm_
+    
 
     @observe('comm')
     def _comm_changed(self, change):
         """Called when the comm is changed."""
-        if change['new'] is None:
-            return
-        self._model_id = self.model_id
+        if change['old']:
+            change['old'].on_msg(None)
+            change['old'].close()
+            self._instances.pop(change['old'].comm_id, None)
+        if change['new']:
+            self._instances[change["new"].comm_id] = self
+            self._model_id = change["new"].comm_id
 
-        self.comm.on_msg(self._handle_msg)
-        _instances[self.model_id] = self
+            # prevent memory leaks by using a weak reference to self.
+            ref = weakref.ref(self)
+            def _handle_msg(msg):
+                self_ = ref()
+                if self_ is not None:
+                    try:
+                        self_._handle_msg(msg)
+                    except Exception as e:
+                        self_._show_traceback(self_._handle_msg, e)
+
+            change['new'].on_msg(_handle_msg)
 
     @property
     def model_id(self):
         """Gets the model id of this widget.
 
         If a Comm doesn't exist yet, a Comm will be created automagically."""
-        return self.comm.comm_id
+        if not self._repr_mimebundle_:
+            # a closed widget will not be found at the frontend so raise an error here. 
+            msg = f"Widget is closed: {self!r}"
+            raise RuntimeError(msg)
+        return getattr(self.comm, "comm_id", None)
+    
 
     #-------------------------------------------------------------------------
     # Methods
     #-------------------------------------------------------------------------
 
     def close(self):
-        """Close method.
+        """Permanently close the widget.
 
         Closes the underlying comm.
         When the comm is closed, all of the widget views are automatically
         removed from the front-end."""
-        if self.comm is not None:
-            _instances.pop(self.model_id, None)
-            self.comm.close()
-            self.comm = None
-            self._repr_mimebundle_ = None
+        self._repr_mimebundle_ = None
+        self.comm = None
 
     def send_state(self, key=None):
         """Sends the widget state, or a piece of it, to the front-end, if it exists.
@@ -693,15 +684,18 @@ class Widget(LoggingHasTraits):
         # Send the state to the frontend before the user-registered callbacks
         # are called.
         name = change['name']
-        if self.comm is not None and getattr(self.comm, 'kernel', True) is not None:
+        comm = self._trait_values.get('comm')
+        if comm  and getattr(comm, 'kernel', None):
             # Make sure this isn't information that the front-end just sent us.
-            if name in self.keys and self._should_send_property(name, getattr(self, name)):
+            if name in self.keys and self._should_send_property(name, change['new']):
                 # Send new state to front-end
                 self.send_state(key=name)
         super().notify_change(change)
 
     def __repr__(self):
-        return self._gen_repr_from_keys(self._repr_keys())
+        if  not self._repr_mimebundle_:
+            return f'<closed:{self.__class__.__name__}>'
+        return  self._gen_repr_from_keys(self._repr_keys())
 
     #-------------------------------------------------------------------------
     # Support methods
@@ -759,7 +753,6 @@ class Widget(LoggingHasTraits):
             return True
 
     # Event handlers
-    @_show_traceback
     def _handle_msg(self, msg):
         """Called when a msg is received from the front-end"""
         data = msg['content']['data']
@@ -784,6 +777,14 @@ class Widget(LoggingHasTraits):
         # Catch remainder.
         else:
             self.log.error('Unknown front-end to back-end widget msg with method "%s"' % method)
+
+    def _show_traceback(self, method, e:Exception):
+            ip = get_ipython()
+            if ip is None:
+                self.log.warning("Exception in widget method %s: %s", method, e, exc_info=True)
+            else:
+                ip.showtraceback()        
+
 
     def _handle_custom_msg(self, content, buffers):
         """Called when a custom msg is received."""
@@ -812,17 +813,18 @@ class Widget(LoggingHasTraits):
             # http://tools.ietf.org/html/rfc6838
             # and the currently registered mimetypes at
             # http://www.iana.org/assignments/media-types/media-types.xhtml.
-            data['application/vnd.jupyter.widget-view+json'] = {
-                'version_major': 2,
-                'version_minor': 0,
-                'model_id': self._model_id
+            data["application/vnd.jupyter.widget-view+json"] = {
+                "version_major": 2,
+                "version_minor": 0,
+                "model_id": self.model_id,
             }
             return data
 
     def _send(self, msg, buffers=None):
         """Sends a message to the model in the front-end."""
-        if self.comm is not None and (self.comm.kernel is not None if hasattr(self.comm, "kernel") else True):
-            self.comm.send(data=msg, buffers=buffers)
+        comm = self.comm
+        if comm is not None and getattr(comm, "kernel", True):
+            comm.send(data=msg, buffers=buffers)
 
     def _repr_keys(self):
         traits = self.traits()

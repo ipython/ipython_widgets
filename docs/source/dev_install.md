@@ -90,6 +90,7 @@ To update the widget model specification with changes, do something like this in
 ```
 python ./packages/schema/generate-spec.py -f json-pretty packages/schema/jupyterwidgetmodels.latest.json
 python ./packages/schema/generate-spec.py -f markdown packages/schema/jupyterwidgetmodels.latest.md
+jlpm prettier
 ```
 
 ## Releasing new versions

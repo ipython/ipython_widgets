@@ -153,8 +153,7 @@ export class CheckboxView extends DescriptionView {
       this.descriptionSpan.textContent = description;
     }
     this.typeset(this.descriptionSpan);
-    this.descriptionSpan.title = description;
-    this.checkbox.title = description;
+    this.updateTooltip();
   }
 
   /**
@@ -177,16 +176,6 @@ export class CheckboxView extends DescriptionView {
       this.checkbox.setAttribute('tabIndex', '-1');
     } else if (tabbable === null) {
       this.checkbox.removeAttribute('tabIndex');
-    }
-  }
-
-  updateTooltip(): void {
-    if (!this.checkbox) return; // we might be constructing the parent
-    const title = this.model.get('tooltip');
-    if (!title) {
-      this.checkbox.removeAttribute('title');
-    } else if (this.model.get('description').length === 0) {
-      this.checkbox.setAttribute('title', title);
     }
   }
 

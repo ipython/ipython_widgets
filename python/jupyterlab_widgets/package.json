@@ -93,5 +93,16 @@
     "extension": true,
     "outputDir": "labextension",
     "schemaDir": "./schema"
+  },
+  "optionalDependencies": {
+    "react": "^18.3.1"
+  },
+  "peerDependencies": {
+    "react": "*"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
   }
 }

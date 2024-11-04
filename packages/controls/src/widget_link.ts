@@ -85,9 +85,12 @@ export class DirectionalLinkModel extends CoreWidgetModel {
         undefined
       );
       this.stopListening(this.sourceModel, 'destroy', undefined);
+      this.set('source', [null, '']);
     }
     if (this.targetModel) {
       this.stopListening(this.targetModel, 'destroy', undefined);
+      this.set('target', [null, '']);
+      this.save_changes();
     }
   }
 

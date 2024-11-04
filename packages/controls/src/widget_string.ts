@@ -378,16 +378,6 @@ export class TextareaView extends StringView {
     }
   }
 
-  updateTooltip(): void {
-    if (!this.textbox) return; // we might be constructing the parent
-    const title = this.model.get('tooltip');
-    if (!title) {
-      this.textbox.removeAttribute('title');
-    } else if (this.model.get('description').length === 0) {
-      this.textbox.setAttribute('title', title);
-    }
-  }
-
   events(): { [e: string]: string } {
     return {
       'keydown input': 'handleKeyDown',
@@ -501,16 +491,6 @@ export class TextView extends StringView {
       this.textbox.setAttribute('tabIndex', '-1');
     } else if (tabbable === null) {
       this.textbox.removeAttribute('tabIndex');
-    }
-  }
-
-  updateTooltip(): void {
-    if (!this.textbox) return; // we might be constructing the parent
-    const title = this.model.get('tooltip');
-    if (!title) {
-      this.textbox.removeAttribute('title');
-    } else if (this.model.get('description').length === 0) {
-      this.textbox.setAttribute('title', title);
     }
   }
 

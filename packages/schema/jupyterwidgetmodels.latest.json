@@ -441,12 +441,8 @@
       {
         "default": [],
         "help": "List of widget children",
-        "items": {
-          "type": "reference",
-          "widget": "Widget"
-        },
         "name": "children",
-        "type": "array"
+        "type": "Children"
       },
       {
         "default": "reference to new instance",
@@ -935,12 +931,8 @@
       {
         "default": [],
         "help": "List of widget children",
-        "items": {
-          "type": "reference",
-          "widget": "Widget"
-        },
         "name": "children",
-        "type": "array"
+        "type": "Children"
       },
       {
         "default": "reference to new instance",
@@ -3753,12 +3745,8 @@
       {
         "default": [],
         "help": "List of widget children",
-        "items": {
-          "type": "reference",
-          "widget": "Widget"
-        },
         "name": "children",
-        "type": "array"
+        "type": "Children"
       },
       {
         "default": "reference to new instance",
@@ -3850,12 +3838,8 @@
       {
         "default": [],
         "help": "List of widget children",
-        "items": {
-          "type": "reference",
-          "widget": "Widget"
-        },
         "name": "children",
-        "type": "array"
+        "type": "Children"
       },
       {
         "default": "reference to new instance",
@@ -6643,12 +6627,8 @@
       {
         "default": [],
         "help": "List of widget children",
-        "items": {
-          "type": "reference",
-          "widget": "Widget"
-        },
         "name": "children",
-        "type": "array"
+        "type": "Children"
       },
       {
         "default": "reference to new instance",
@@ -6756,12 +6736,8 @@
       {
         "default": [],
         "help": "List of widget children",
-        "items": {
-          "type": "reference",
-          "widget": "Widget"
-        },
         "name": "children",
-        "type": "array"
+        "type": "Children"
       },
       {
         "default": "reference to new instance",
@@ -7914,12 +7890,8 @@
       {
         "default": [],
         "help": "List of widget children",
-        "items": {
-          "type": "reference",
-          "widget": "Widget"
-        },
         "name": "children",
-        "type": "array"
+        "type": "Children"
       },
       {
         "default": "reference to new instance",

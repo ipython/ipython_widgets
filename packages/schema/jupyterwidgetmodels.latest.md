@@ -76,7 +76,7 @@ that the widget is registered with.
 | `_view_module_version`  | string                                                               | `'2.0.0'`                     |
 | `_view_name`            | string                                                               | `'AccordionView'`             |
 | `box_style`             | string (one of `'success'`, `'info'`, `'warning'`, `'danger'`, `''`) | `''`                          | Use a predefined styling for the box.                                                                                             |
-| `children`              | array of reference to Widget widget                                  | `[]`                          | List of widget children                                                                                                           |
+| `children`              | Children                                                             | `[]`                          | List of widget children                                                                                                           |
 | `layout`                | reference to Layout widget                                           | reference to new instance     |
 | `selected_index`        | `null` or number (integer)                                           | `null`                        | The index of the selected page. This is either an integer selecting a particular sub-widget, or None to have no widgets selected. |
 | `tabbable`              | `null` or boolean                                                    | `null`                        | Is widget tabbable?                                                                                                               |
@@ -163,7 +163,7 @@ that the widget is registered with.
 | `_view_module_version`  | string                                                               | `'2.0.0'`                     |
 | `_view_name`            | string                                                               | `'BoxView'`                   |
 | `box_style`             | string (one of `'success'`, `'info'`, `'warning'`, `'danger'`, `''`) | `''`                          | Use a predefined styling for the box.     |
-| `children`              | array of reference to Widget widget                                  | `[]`                          | List of widget children                   |
+| `children`              | Children                                                             | `[]`                          | List of widget children                   |
 | `layout`                | reference to Layout widget                                           | reference to new instance     |
 | `tabbable`              | `null` or boolean                                                    | `null`                        | Is widget tabbable?                       |
 | `tooltip`               | `null` or string                                                     | `null`                        | A tooltip caption.                        |
@@ -663,7 +663,7 @@ that the widget is registered with.
 | `_view_module_version`  | string                                                               | `'2.0.0'`                     |
 | `_view_name`            | string                                                               | `'GridBoxView'`               |
 | `box_style`             | string (one of `'success'`, `'info'`, `'warning'`, `'danger'`, `''`) | `''`                          | Use a predefined styling for the box.     |
-| `children`              | array of reference to Widget widget                                  | `[]`                          | List of widget children                   |
+| `children`              | Children                                                             | `[]`                          | List of widget children                   |
 | `layout`                | reference to Layout widget                                           | reference to new instance     |
 | `tabbable`              | `null` or boolean                                                    | `null`                        | Is widget tabbable?                       |
 | `tooltip`               | `null` or string                                                     | `null`                        | A tooltip caption.                        |
@@ -680,7 +680,7 @@ that the widget is registered with.
 | `_view_module_version`  | string                                                               | `'2.0.0'`                     |
 | `_view_name`            | string                                                               | `'HBoxView'`                  |
 | `box_style`             | string (one of `'success'`, `'info'`, `'warning'`, `'danger'`, `''`) | `''`                          | Use a predefined styling for the box.     |
-| `children`              | array of reference to Widget widget                                  | `[]`                          | List of widget children                   |
+| `children`              | Children                                                             | `[]`                          | List of widget children                   |
 | `layout`                | reference to Layout widget                                           | reference to new instance     |
 | `tabbable`              | `null` or boolean                                                    | `null`                        | Is widget tabbable?                       |
 | `tooltip`               | `null` or string                                                     | `null`                        | A tooltip caption.                        |
@@ -1179,7 +1179,7 @@ that the widget is registered with.
 | `_view_module_version`  | string                                                               | `'2.0.0'`                     |
 | `_view_name`            | string                                                               | `'StackView'`                 |
 | `box_style`             | string (one of `'success'`, `'info'`, `'warning'`, `'danger'`, `''`) | `''`                          | Use a predefined styling for the box.                                                                                             |
-| `children`              | array of reference to Widget widget                                  | `[]`                          | List of widget children                                                                                                           |
+| `children`              | Children                                                             | `[]`                          | List of widget children                                                                                                           |
 | `layout`                | reference to Layout widget                                           | reference to new instance     |
 | `selected_index`        | `null` or number (integer)                                           | `null`                        | The index of the selected page. This is either an integer selecting a particular sub-widget, or None to have no widgets selected. |
 | `tabbable`              | `null` or boolean                                                    | `null`                        | Is widget tabbable?                                                                                                               |
@@ -1198,7 +1198,7 @@ that the widget is registered with.
 | `_view_module_version`  | string                                                               | `'2.0.0'`                     |
 | `_view_name`            | string                                                               | `'TabView'`                   |
 | `box_style`             | string (one of `'success'`, `'info'`, `'warning'`, `'danger'`, `''`) | `''`                          | Use a predefined styling for the box.                                                                                             |
-| `children`              | array of reference to Widget widget                                  | `[]`                          | List of widget children                                                                                                           |
+| `children`              | Children                                                             | `[]`                          | List of widget children                                                                                                           |
 | `layout`                | reference to Layout widget                                           | reference to new instance     |
 | `selected_index`        | `null` or number (integer)                                           | `null`                        | The index of the selected page. This is either an integer selecting a particular sub-widget, or None to have no widgets selected. |
 | `tabbable`              | `null` or boolean                                                    | `null`                        | Is widget tabbable?                                                                                                               |
@@ -1402,7 +1402,7 @@ that the widget is registered with.
 | `_view_module_version`  | string                                                               | `'2.0.0'`                     |
 | `_view_name`            | string                                                               | `'VBoxView'`                  |
 | `box_style`             | string (one of `'success'`, `'info'`, `'warning'`, `'danger'`, `''`) | `''`                          | Use a predefined styling for the box.     |
-| `children`              | array of reference to Widget widget                                  | `[]`                          | List of widget children                   |
+| `children`              | Children                                                             | `[]`                          | List of widget children                   |
 | `layout`                | reference to Layout widget                                           | reference to new instance     |
 | `tabbable`              | `null` or boolean                                                    | `null`                        | Is widget tabbable?                       |
 | `tooltip`               | `null` or string                                                     | `null`                        | A tooltip caption.                        |

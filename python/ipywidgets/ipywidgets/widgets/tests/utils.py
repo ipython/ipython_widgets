@@ -1,12 +1,14 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
+
 from ipywidgets import Widget
 import ipywidgets.widgets.widget
 
 # The new comm package is not available in our Python 3.7 CI (older ipykernel version)
 try:
     import comm
+
     NEW_COMM_PACKAGE = True
 except ImportError:
     NEW_COMM_PACKAGE = False
@@ -14,9 +16,10 @@ except ImportError:
 import ipykernel.comm
 import pytest
 
-class DummyComm():
-    comm_id = 'a-b-c-d'
-    kernel = 'Truthy'
+
+class DummyComm:
+    comm_id = "a-b-c-d"
+    kernel = "Truthy"
 
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -57,6 +60,7 @@ if NEW_COMM_PACKAGE:
     orig_create_comm = comm.create_comm
     orig_get_comm_manager = comm.get_comm_manager
 
+
 def setup_test_comm():
     if NEW_COMM_PACKAGE:
         comm.create_comm = dummy_create_comm
@@ -66,10 +70,13 @@ def setup_test_comm():
         ipykernel.comm.Comm = DummyComm
     Widget.comm.klass = DummyComm
     ipywidgets.widgets.widget.Comm = DummyComm
-    _widget_attrs['_repr_mimebundle_'] = Widget._repr_mimebundle_
+    _widget_attrs["_repr_mimebundle_"] = Widget._repr_mimebundle_
+
     def raise_not_implemented(*args, **kwargs):
         raise NotImplementedError()
+
     Widget._repr_mimebundle_ = raise_not_implemented
+
 
 def teardown_test_comm():
     if NEW_COMM_PACKAGE:
@@ -87,11 +94,13 @@ def teardown_test_comm():
             setattr(Widget, attr, value)
     _widget_attrs.clear()
 
+
 @pytest.fixture(autouse=True)
 def setup():
     setup_test_comm()
     yield
     teardown_test_comm()
+
 
 def call_method(method, *args, **kwargs):
     method(*args, **kwargs)
