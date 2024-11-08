@@ -194,15 +194,15 @@ describe('WidgetModel', function () {
       });
     });
 
-    it('sets the widget_manager, id, comm, and comm_live properties', function () {
-      const widgetDead = new WidgetModel({}, {
-        model_id: 'widgetDead',
+    it('sets the widget_manager, id, comm, properties', function () {
+      const widgetNoComm = new WidgetModel({}, {
+        model_id: 'noComm',
         widget_manager: this.manager,
       } as IBackboneModelOptions);
-      expect(widgetDead.model_id).to.equal('widgetDead');
-      expect(widgetDead.widget_manager).to.equal(this.manager);
-      expect(widgetDead.comm).to.be.undefined;
-      expect(widgetDead.comm_live).to.be.false;
+      expect(widgetNoComm.model_id).to.equal('noComm');
+      expect(widgetNoComm.widget_manager).to.equal(this.manager);
+      expect(widgetNoComm.comm).to.be.undefined;
+      expect(widgetNoComm.comm_live).to.be.false;
 
       const comm = new MockComm();
       const widgetLive = new WidgetModel({}, {

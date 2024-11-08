@@ -302,7 +302,7 @@ abstract class LabWidgetManager extends ManagerBase implements IDisposable {
   get_state_sync(options: IStateOptions = {}): ReadonlyPartialJSONValue {
     const models = [];
     for (const model of this._modelsSync.values()) {
-      if (model.comm_live) {
+      if (model.comm) {
         models.push(model);
       }
     }
@@ -488,6 +488,7 @@ export class KernelWidgetManager extends LabWidgetManager {
       case 'restarting':
       case 'dead':
         this.disconnect();
+        this.clear_state();
         break;
     }
   }
@@ -510,7 +511,6 @@ export class KernelWidgetManager extends LabWidgetManager {
     this._restoredStatus = false;
     this._kernelRestoreInProgress = true;
     try {
-      await this.clear_state();
       await this._loadFromKernel();
     } catch {
       /* empty */

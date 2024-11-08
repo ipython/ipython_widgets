@@ -499,6 +499,9 @@ export abstract class ManagerBase implements IWidgetManager {
               model.constructor as typeof WidgetModel
             )._deserialize_state(state.state, this);
             model!.set_state(deserializedState);
+            if (!model.comm_live) {
+              model.comm = await this._create_comm('jupyter.widget', widget_id);
+            }
           }
         } catch (error) {
           // Failed to create a widget model, we continue creating other models so that
@@ -750,12 +753,12 @@ export abstract class ManagerBase implements IWidgetManager {
 
   /**
    * Disconnect the widget manager from the kernel, setting each model's comm
-   * as dead.
+   * as undefined.
    */
   disconnect(): void {
     Object.keys(this._models).forEach((i) => {
       this._models[i].then((model) => {
-        model.comm_live = false;
+        model.comm = undefined;
       });
     });
   }
