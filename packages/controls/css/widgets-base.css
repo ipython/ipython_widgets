@@ -125,6 +125,14 @@
   flex-direction: column;
 }
 
+.jupyter-widget-output {
+  box-sizing: border-box;
+  display: flex;
+  margin: 0;
+  overflow: auto;
+  flex-direction: column;
+}
+
 /* General Tags Styling */
 
 .jupyter-widget-tagsinput {
@@ -907,7 +915,7 @@
   flex: 1 1 var(--jp-widgets-inline-width-short);
   outline: none !important;
   overflow: auto;
-  height: inherit;
+  height: 100%;
 
   /* Because Firefox defines the baseline of a select as the bottom of the
     control, we align the entire control to the top and add padding to the
