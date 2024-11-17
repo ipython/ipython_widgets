@@ -160,7 +160,7 @@ export class WidgetModel extends Backbone.Model {
     // Attributes should be initialized here, since user initialization may depend on it
     this.widget_manager = options.widget_manager;
     this.model_id = options.model_id;
-    const comm = options.comm;
+    this.comm = options.comm;
 
     this.views = Object.create(null);
     this.state_change = Promise.resolve();
@@ -174,27 +174,23 @@ export class WidgetModel extends Backbone.Model {
     // _buffered_state_diff must be created *after* the super.initialize
     // call above. See the note in the set() method below.
     this._buffered_state_diff = {};
+  }
 
+  get comm() {
+    return this._comm;
+  }
+
+  set comm(comm: IClassicComm | undefined) {
+    this._comm = comm;
     if (comm) {
-      // Remember comm associated with the model.
-      this.comm = comm;
-
-      // Hook comm messages up to model.
       comm.on_close(this._handle_comm_closed.bind(this));
       comm.on_msg(this._handle_comm_msg.bind(this));
-
-      this.comm_live = true;
-    } else {
-      this.comm_live = false;
     }
+    this.trigger('comm_live_update');
   }
 
-  get comm_live(): boolean {
-    return this._comm_live;
-  }
-  set comm_live(x) {
-    this._comm_live = x;
-    this.trigger('comm_live_update');
+  get comm_live() {
+    return Boolean(this.comm);
   }
 
   /**
@@ -218,39 +214,46 @@ export class WidgetModel extends Backbone.Model {
    *
    * @returns - a promise that is fulfilled when all the associated views have been removed.
    */
-  close(comm_closed = false): Promise<void> {
+  async close(comm_closed = false): Promise<void> {
     // can only be closed once.
     if (this._closed) {
-      return Promise.resolve();
+      return;
     }
     this._closed = true;
-    if (this.comm && !comm_closed) {
-      this.comm.close();
+    if (this._comm && !comm_closed) {
+      try {
+        this._comm.close();
+      } catch (err) {
+        // Do Nothing
+      }
     }
     this.stopListening();
     this.trigger('destroy', this);
-    if (this.comm) {
-      delete this.comm;
-    }
+    delete this._comm;
+
     // Delete all views of this model
     if (this.views) {
       const views = Object.keys(this.views).map((id: string) => {
         return this.views![id].then((view) => view.remove());
       });
       delete this.views;
-      return Promise.all(views).then(() => {
-        return;
-      });
+      await Promise.all(views);
+      return;
     }
-    return Promise.resolve();
   }
 
   /**
    * Handle when a widget comm is closed.
    */
   _handle_comm_closed(msg: KernelMessage.ICommCloseMsg): void {
+    if (!this.comm) {
+      return;
+    }
+    this.comm = undefined;
     this.trigger('comm:close');
-    this.close(true);
+    if (!this._closed) {
+      this.close(true);
+    }
   }
 
   /**
@@ -635,7 +638,7 @@ export class WidgetModel extends Backbone.Model {
    * This invokes a Backbone.Sync.
    */
   save_changes(callbacks?: {}): void {
-    if (this.comm_live) {
+    if (this.comm) {
       const options: any = { patch: true };
       if (callbacks) {
         options.callbacks = callbacks;
@@ -721,11 +724,9 @@ export class WidgetModel extends Backbone.Model {
   model_id: string;
   views?: { [key: string]: Promise<WidgetView> };
   state_change: Promise<any>;
-  comm?: IClassicComm;
   name: string;
   module: string;
-
-  private _comm_live: boolean;
+  private _comm?: IClassicComm;
   private _closed: boolean;
   private _state_lock: any;
   private _buffered_state_diff: any;

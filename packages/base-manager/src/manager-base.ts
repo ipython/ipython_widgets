@@ -214,10 +214,14 @@ export abstract class ManagerBase implements IWidgetManager {
    *
    * If you would like to synchronously test if a model exists, use .has_model().
    */
-  async get_model(model_id: string): Promise<WidgetModel> {
+  async get_model(model_id: string, delays = [500]): Promise<WidgetModel> {
+    let i = 0;
+    while (!this._models[model_id] && i < delays.length) {
+      await new Promise((resolve) => setTimeout(resolve, delays[i++]));
+    }
     const modelPromise = this._models[model_id];
     if (modelPromise === undefined) {
-      throw new Error('widget model not found');
+      throw new Error(`widget model '${model_id}' not found`);
     }
     return modelPromise;
   }
@@ -383,6 +387,12 @@ export abstract class ManagerBase implements IWidgetManager {
     // Try fetching all widget states through the control comm
     let data: any;
     let buffers: any;
+    let timeoutID: number | undefined;
+    const comm_ids = await this._get_comm_info();
+    if (Object.keys(comm_ids).length === 0) {
+      // There is nothing to load, either a new kernel or no widgets in the kernel.
+      return Promise.resolve();
+    }
     try {
       const initComm = await this._create_comm(
         CONTROL_COMM_TARGET,
@@ -390,8 +400,8 @@ export abstract class ManagerBase implements IWidgetManager {
         {},
         { version: CONTROL_COMM_PROTOCOL_VERSION }
       );
-
       await new Promise((resolve, reject) => {
+        let succeeded = false;
         initComm.on_msg((msg: any) => {
           data = msg['content']['data'];
 
@@ -409,22 +419,24 @@ export abstract class ManagerBase implements IWidgetManager {
               return new DataView(b instanceof ArrayBuffer ? b : b.buffer);
             }
           });
-
+          succeeded = true;
+          clearTimeout(timeoutID);
           resolve(null);
         });
 
-        initComm.on_close(() => reject('Control comm was closed too early'));
+        initComm.on_close(() => {
+          if (!succeeded) reject('Control comm was closed too early');
+        });
 
         // Send a states request msg
         initComm.send({ method: 'request_states' }, {});
 
         // Reject if we didn't get a response in time
-        setTimeout(
+        timeoutID = window.setTimeout(
           () => reject('Control comm did not respond in time'),
           CONTROL_COMM_TIMEOUT
         );
       });
-
       initComm.close();
     } catch (error) {
       // Fall back to the old implementation for old ipywidgets backend versions (ipywidgets<=7.6)
@@ -487,6 +499,9 @@ export abstract class ManagerBase implements IWidgetManager {
               model.constructor as typeof WidgetModel
             )._deserialize_state(state.state, this);
             model!.set_state(deserializedState);
+            if (!model.comm_live) {
+              model.comm = await this._create_comm('jupyter.widget', widget_id);
+            }
           }
         } catch (error) {
           // Failed to create a widget model, we continue creating other models so that
@@ -738,12 +753,12 @@ export abstract class ManagerBase implements IWidgetManager {
 
   /**
    * Disconnect the widget manager from the kernel, setting each model's comm
-   * as dead.
+   * as undefined.
    */
   disconnect(): void {
     Object.keys(this._models).forEach((i) => {
       this._models[i].then((model) => {
-        model.comm_live = false;
+        model.comm = undefined;
       });
     });
   }

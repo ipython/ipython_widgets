@@ -134,7 +134,7 @@ jobs:
       - name: Check the JupyterLab extension is installed
         if: matrix.dist != 'widgetsnbextension*.tar.gz'
         run: |
-          python -m pip install jupyterlab~=3.0
+          python -m pip install jupyterlab~=4.0
 
           jupyter labextension list
           jupyter labextension list 2>&1 | grep -ie "@jupyter-widgets/jupyterlab-manager.*enabled.*ok" -

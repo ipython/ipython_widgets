@@ -24,7 +24,9 @@ export function createErrorWidgetModel(
         error: error,
       };
       super(attributes, options);
-      this.comm_live = true;
+    }
+    get comm_live(): boolean {
+      return true;
     }
   }
   return ErrorWidget;
