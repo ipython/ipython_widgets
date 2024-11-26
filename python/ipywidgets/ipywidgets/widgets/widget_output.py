@@ -14,7 +14,7 @@ from .trait_types import TypedTuple
 from .widget import register
 from .._version import __jupyter_widgets_output_version__
 
-from traitlets import Unicode, Dict
+from traitlets import Unicode, Dict, Bool
 from IPython.core.interactiveshell import InteractiveShell
 from IPython.display import clear_output
 from IPython import get_ipython
@@ -29,11 +29,13 @@ class Output(DOMWidget):
 
     You can then use the widget as a context manager: any output produced while in the
     context will be captured and displayed in the widget instead of the standard output
-    area.
+    area. Any exception from the context will be thrown outside by default, but if
+    catch_exception is set to True, the context manager will catch and suppress the
+    exceptions.
 
     You can also use the .capture() method to decorate a function or a method. Any output
     produced by the function will then go to the output widget. This is useful for
-    debugging widget callbacks, for example.
+    debugging widget callbacks, for example:
 
     Example::
         import ipywidgets as widgets
@@ -49,6 +51,11 @@ class Output(DOMWidget):
         @out.capture()
         def func():
             print('prints to output widget')
+
+    Parameters
+    ----------
+    catch_exception: {True,False}
+        Whether exceptions will be suppressed or not. Default is False.
     """
     _view_name = Unicode('OutputView').tag(sync=True)
     _model_name = Unicode('OutputModel').tag(sync=True)
@@ -59,6 +66,8 @@ class Output(DOMWidget):
 
     msg_id = Unicode('', help="Parent message id of messages to capture").tag(sync=True)
     outputs = TypedTuple(trait=Dict(), help="The output messages synced from the frontend.").tag(sync=True)
+
+    catch_exception = Bool(True, help="Whether to catch and suppress all exceptions.")
 
     __counter = 0
 
@@ -150,9 +159,12 @@ class Output(DOMWidget):
         self.__counter -= 1
         if self.__counter == 0:
             self.msg_id = ''
-        # suppress exceptions when in IPython, since they are shown above,
-        # otherwise let someone else handle it
-        return True if kernel else None
+
+        # suppress exceptions when in IPython and capture_exception is set,
+        # since they are shown above. Otherwise let the exception rethrown
+        # so that someone else handles it.
+        if kernel and self.catch_exception:
+            return True
 
     def _flush(self):
         """Flush stdout and stderr buffers."""

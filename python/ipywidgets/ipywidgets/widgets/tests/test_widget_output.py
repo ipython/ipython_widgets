@@ -1,3 +1,5 @@
+import traceback
+import pytest
 import sys
 from unittest import TestCase
 from contextlib import contextmanager
@@ -33,7 +35,13 @@ class TestOutputWidget(TestCase):
         # is still printed to screen
         def showtraceback(self_, exc_tuple, *args, **kwargs):
             etype, evalue, tb = exc_tuple
-            raise etype(evalue)
+            # Ipython notebook displays traceback and does not re-raise.
+            # This mock ipython object will mimic the behavior.
+            print("")
+            print("---------------------------------------------")
+            print("<mocked ipython Exception>")
+            traceback.print_exception(etype, evalue, tb)
+            print("---------------------------------------------")
 
         ipython = type(
             'mock_ipython',
@@ -63,6 +71,53 @@ class TestOutputWidget(TestCase):
             with widget:
                 assert widget.msg_id == msg_id
             assert widget.msg_id == ''
+
+    def test_exception_when_capturing(self):
+        class CustomException(Exception):
+            pass
+
+        def _run_code(widget, msg):
+            with widget:
+                raise CustomException(msg)
+            raise AssertionError(
+                "This line should be never executed. "
+                "The output widget probably have suppressed the exception.")
+
+        # 1. without ipython (plain python)
+        no_ipython = lambda: None
+        with self._mocked_ipython(no_ipython, no_ipython):
+            # 1-1. without ipython
+            widget = widget_output.Output()
+            with pytest.raises(CustomException):
+                _run_code(widget, "NO ipython")
+
+            # 1-2. without ipython, catch_exception (no effect)
+            widget = widget_output.Output(catch_exception=True)
+            with pytest.raises(CustomException):
+                _run_code(widget, "NO ipython, catch_exception")
+
+        # 2. with ipython
+        msg_id = 'msg-id'
+        get_ipython = self._mock_get_ipython(msg_id)
+        clear_output = self._mock_clear_output()
+        with self._mocked_ipython(get_ipython, clear_output):
+            # 2-1. with ipython (throws outside)
+            # An exception should be thrown outside the capturing block.
+            widget = widget_output.Output(catch_exception=False)
+            with pytest.raises(CustomException):
+                _run_code(widget, "ipython + NO catch_exception")
+
+            # 2-2. with ipython + catch_exception (suppress exception)
+            widget = widget_output.Output(catch_exception=True)
+            with pytest.raises(AssertionError,
+                               match='.*should be never executed.*'):
+                _run_code(widget, "ipython + catch_exception")
+
+            # the default behavior: suppress exception (see #3417)
+            widget = widget_output.Output()
+            with pytest.raises(AssertionError,
+                               match='.*should be never executed.*'):
+                _run_code(widget, "ipython + catch_exception")
 
     def test_clear_output(self):
         msg_id = 'msg-id'
