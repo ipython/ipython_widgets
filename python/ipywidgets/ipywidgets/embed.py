@@ -247,7 +247,9 @@ def embed_snippet(views,
                   indent=2,
                   embed_url=None,
                   requirejs=True,
-                  cors=True
+                  cors=True,
+                  minimize_json=False,
+                  user_load_template="empty-template"
                  ):
     """Return a snippet that can be embedded in an HTML file.
 
@@ -263,22 +265,39 @@ def embed_snippet(views,
 
     data = embed_data(views, drop_defaults=drop_defaults, state=state)
 
-    widget_views = '\n'.join(
-        widget_view_template.format(view_spec=escape_script(json.dumps(view_spec)))
+    if minimize_json:
+        widget_views = u'\n'.join(
+        widget_view_template.format(view_spec=escape_script(json.dumps(view_spec, separators=(',', ':'))))
         for view_spec in data['view_specs']
     )
+    else:
+        widget_views = '\n'.join(
+            widget_view_template.format(view_spec=escape_script(view_spec, indent=indent))
+            for view_spec in data['view_specs']
+        )
 
     if embed_url is None:
         embed_url = DEFAULT_EMBED_REQUIREJS_URL if requirejs else DEFAULT_EMBED_SCRIPT_URL
 
     load = load_requirejs_template if requirejs else load_template
 
+    if user_load_template != "empty-template":
+        load = user_load_template
+
     use_cors = ' crossorigin="anonymous"' if cors else ''
-    values = {
-        'load': load.format(embed_url=embed_url, use_cors=use_cors),
-        'json_data': escape_script(json.dumps(data['manager_state'], indent=indent)),
-        'widget_views': widget_views,
-    }
+
+    if minimize_json:
+        values = {
+            'load': load.format(embed_url=embed_url, use_cors=use_cors),
+            'json_data': escape_script(json.dumps(data['manager_state'], separators=(',', ':'))),
+            'widget_views': widget_views,
+        }
+    else:
+        values = {
+            'load': load.format(embed_url=embed_url, use_cors=use_cors),
+            'json_data': escape_script(json.dumps(data['manager_state'], indent=indent)),
+            'widget_views': widget_views,
+        }
 
     return snippet_template.format(**values)
 
