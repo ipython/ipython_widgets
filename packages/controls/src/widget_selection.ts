@@ -792,6 +792,9 @@ export class SelectionSliderView extends DescriptionView {
     return {
       slide: 'handleSliderChange',
       slidestop: 'handleSliderChanged',
+      'blur [contentEditable=true]': 'handleTextChange',
+      'keydown [contentEditable=true]': 'handleKeyDown'
+
     };
   }
 
@@ -803,6 +806,32 @@ export class SelectionSliderView extends DescriptionView {
   updateReadout(index: any): void {
     const value = this.model.get('_options_labels')[index];
     this.readout.textContent = value;
+  }
+
+  handleKeyDown(e: KeyboardEvent) {
+    if (e.keyCode === 13) { /* keyboard keycodes `enter` */
+      e.preventDefault();
+      this.handleTextChange();
+    }
+  }
+
+  /**
+   * Called when the contentEditable label text is changed
+   * This is used to lookup against option labels, and if
+   * a valid label is found, modify the selected option
+   */
+  handleTextChange() {
+    console.log("TextChange");
+    const currentIndex = this.model.get('index');
+    const options = this.model.get('_options_labels');
+    const index = options.indexOf(this.readout.textContent);
+    if (index !== -1 && index !== currentIndex) {
+      // Don't set textContent, it hasn't changed
+      this.model.set('index', index, {updated_view: this});
+      this.touch();
+    } else {
+      this.updateReadout(currentIndex);
+    }
   }
 
   /**
