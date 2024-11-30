@@ -1,7 +1,7 @@
 bqplot
 ipyleaflet
 jupyterlab-myst
-jupyterlab==4.0.7
+jupyterlab==4.0.11
 matplotlib
 nbclassic
 networkx
