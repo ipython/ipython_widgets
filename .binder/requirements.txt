@@ -5,7 +5,7 @@ jupyterlab==4.0.7
 matplotlib
 nbclassic
 networkx
-notebook==7.0.5
+notebook==7.0.7
 numpy
 pandas
 scikit-image
