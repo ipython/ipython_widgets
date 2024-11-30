@@ -24,4 +24,4 @@ export * from './widget_string';
 export * from './widget_description';
 export * from './widget_upload';
 
-export const version = (require('../package.json') as any).version;
+export const version = "";

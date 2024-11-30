@@ -19,7 +19,8 @@
   "scripts": {
     "build": "npm run build:src && npm run build:css",
     "build:css": "lessc css/nouislider.less css/nouislider.css && postcss --use postcss-import --use postcss-cssnext -o css/widgets.built.css css/widgets.css",
-    "build:src": "tsc --build",
+    "build:src": "npm run clean:src && tsc --build && npm run build:fixup-version",
+    "build:fixup-version": "node ./scripts/fixup-version.js",
     "build:test": "tsc --build test && webpack --config test/webpack.conf.js",
     "clean": "npm run clean:src",
     "clean:src": "rimraf lib && rimraf tsconfig.tsbuildinfo",
