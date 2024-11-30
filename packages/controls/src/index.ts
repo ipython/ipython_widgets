@@ -23,5 +23,6 @@ export * from './widget_tagsinput';
 export * from './widget_string';
 export * from './widget_description';
 export * from './widget_upload';
+export * from './widget_fieldset';
 
 export const version = (require('../package.json') as any).version;
