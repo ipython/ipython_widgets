@@ -3,12 +3,13 @@
 
 import mimetypes
 
-from .widget_core import CoreWidget
+from traitlets import Bool, CUnicode, Int, TraitError, Unicode, validate
+
 from .domwidget import DOMWidget
+from .trait_types import CByteMemoryView
 from .valuewidget import ValueWidget
 from .widget import register
-from traitlets import Unicode, CUnicode, Bool
-from .trait_types import CByteMemoryView
+from .widget_core import CoreWidget
 
 
 @register
@@ -215,6 +216,10 @@ class Audio(_Media):
     autoplay = Bool(True, help="When true, the audio starts when it's displayed").tag(sync=True)
     loop = Bool(True, help="When true, the audio will start from the beginning after finishing").tag(sync=True)
     controls = Bool(True, help="Specifies that audio controls should be displayed (such as a play/pause button etc)").tag(sync=True)
+    current_time = Int(
+        allow_none=True,
+        help="The current_time property sets or returns the current position (in seconds) of the audio/video playback."
+    ).tag(sync=True)
 
     @classmethod
     def from_file(cls, filename, **kwargs):
@@ -222,3 +227,13 @@ class Audio(_Media):
 
     def __repr__(self):
         return self._get_repr(Audio)
+
+    @validate("current_time")
+    def _validate_current_time(self, proposal):
+        """Validate that current_time >= 0.
+        """
+        current_time = proposal["value"] or 0
+        if current_time < 0:
+            raise TraitError("Current time property must be greater than 0.")
+
+        return current_time

@@ -15,6 +15,7 @@ export class AudioModel extends CoreDOMWidgetModel {
       autoplay: true,
       loop: true,
       controls: true,
+      current_time: 0,
       value: new DataView(new ArrayBuffer(0)),
     };
   }
@@ -70,6 +71,7 @@ export class AudioView extends DOMWidgetView {
     this.el.loop = this.model.get('loop');
     this.el.autoplay = this.model.get('autoplay');
     this.el.controls = this.model.get('controls');
+    this.el.currentTime = this.model.get('current_time');
 
     return super.update();
   }
