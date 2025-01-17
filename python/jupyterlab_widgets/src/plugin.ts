@@ -138,6 +138,8 @@ function* chain<T>(
   }
 }
 
+const NO_KERNEL_SESSION_CONTEXT_IDS = new WeakMap<ISessionContext, string>();
+
 /**
  * Get the kernel id of current notebook or console panel, this value
  * is used as key for `Private.widgetManagerProperty` to store the widget
@@ -150,7 +152,15 @@ async function getWidgetManagerOwner(
   sessionContext: ISessionContext
 ): Promise<Private.IWidgetManagerOwner> {
   await sessionContext.ready;
-  return sessionContext.session!.kernel!.id;
+  let id = sessionContext.session?.kernel?.id;
+  if (id === undefined) {
+    id = NO_KERNEL_SESSION_CONTEXT_IDS.get(sessionContext);
+    if (id === undefined) {
+      id = 'no-kernel-' + base.uuid();
+      NO_KERNEL_SESSION_CONTEXT_IDS.set(sessionContext, id);
+    }
+  }
+  return id;
 }
 
 /**
